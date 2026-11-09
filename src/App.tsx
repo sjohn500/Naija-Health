@@ -20,7 +20,13 @@ import {
   Languages,
   Volume2,
   PhoneCall,
-  Sparkles
+  Sparkles,
+  Thermometer,
+  Droplet,
+  Zap,
+  Wind,
+  Heart,
+  Activity
 } from 'lucide-react';
 import { Header } from './components/Header';
 import { EmergencyModal } from './components/EmergencyModal';
@@ -471,26 +477,44 @@ export default function App() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Symptom Chips */}
-          <div className="px-4 py-2 bg-stone-50/70 border-t border-stone-200/70">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 shrink-0 mr-1">
-                Common Symptoms:
+          {/* Quick Symptom Chips with Vibrant Category Colors */}
+          <div className="px-3.5 py-2.5 bg-white border-t border-stone-200/80">
+            <div className="flex items-center justify-between mb-1.5 px-0.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-500 flex items-center gap-1">
+                <span>⚡ Common Symptoms (Tap to triage):</span>
               </span>
-              {COMMON_SYMPTOM_PROMPTS.map((item, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSendMessage(item.text)}
-                  disabled={isLoading}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all border ${
-                    item.label.includes('Heavy chest') || item.label.includes('🚨')
-                      ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                      : 'bg-white hover:bg-emerald-50 hover:text-[#008751] hover:border-emerald-300 text-stone-700 border-stone-200/80 shadow-2xs'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+              <span className="text-[10px] text-stone-400 hidden sm:inline">
+                Scroll to see all →
+              </span>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {COMMON_SYMPTOM_PROMPTS.map((item, idx) => {
+                const renderIcon = () => {
+                  switch (item.iconName) {
+                    case 'thermometer': return <Thermometer className="w-3.5 h-3.5 text-amber-600 shrink-0" />;
+                    case 'droplet': return <Droplet className="w-3.5 h-3.5 text-sky-600 shrink-0" />;
+                    case 'zap': return <Zap className="w-3.5 h-3.5 text-purple-600 shrink-0" />;
+                    case 'wind': return <Wind className="w-3.5 h-3.5 text-teal-600 shrink-0" />;
+                    case 'heart': return <Heart className="w-3.5 h-3.5 text-rose-600 shrink-0" />;
+                    case 'activity': return <Activity className="w-3.5 h-3.5 text-indigo-600 shrink-0" />;
+                    case 'alert': return <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0 animate-pulse" />;
+                    default: return <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />;
+                  }
+                };
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleSendMessage(item.text)}
+                    disabled={isLoading}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border flex items-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer disabled:opacity-40 ${item.bgColor} ${item.textColor} ${item.borderColor} ${item.hoverColor}`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${item.dotColor} shrink-0`} />
+                    {renderIcon()}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

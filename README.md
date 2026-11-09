@@ -33,4 +33,34 @@ Built using **React, TypeScript, Node.js**, and the **Google Gemini 2.5 Flash AP
 - **Styling Framework:** Tailwind CSS for a mobile-first, responsive, lightweight layout optimized for low-data network environments.
 - **Intelligence Orchestration:** Google GenAI SDK (Gemini 2.5 Flash) managed via a secure backend wrapper to protect system credentials.
 - **State & Memory Management:** Native react hooks combined with structural context layers to retain conversation memory seamlessly across symptom threads.
-- **Deployment Targets:** Vercel (Frontend Hosting) & Render / Railway (Backend Node.js API Service).
+- **Deployment Targets:** Render (Fullstack Web Service), Cloud Run, Vercel / Railway.
+
+---
+
+## ☁️ How to Deploy on Render (Step-by-Step)
+
+Because this app is a **full-stack application** (Express API + Vite React client served on one port), it deploys cleanly to Render as a **Web Service**:
+
+### Option 1: Automatic Blueprint (using `render.yaml`)
+1. Push this project to your **GitHub** account.
+2. Go to your [Render Dashboard](https://dashboard.render.com/) and click **New + > Blueprint**.
+3. Connect your repository. Render will automatically read `render.yaml`.
+4. Enter your `GEMINI_API_KEY` under Environment Variables and click **Apply**.
+
+### Option 2: Manual Web Service Setup
+1. On [Render](https://dashboard.render.com/), click **New + > Web Service**.
+2. Connect your GitHub repository.
+3. Configure the following settings:
+   - **Name:** `naijahealth-ai` (or your chosen name)
+   - **Language / Runtime:** `Node`
+   - **Branch:** `main`
+   - **Build Command:** `npm install && npm run build`
+   - **Start Command:** `npm start`
+   - **Plan:** Free
+4. In the **Environment Variables** section, add:
+   - `NODE_ENV`: `production`
+   - `GEMINI_API_KEY`: *(Your Google AI Studio API key)*
+5. Click **Deploy Web Service**.
+6. Render will build the Vite frontend into `dist/`, launch `server.ts`, and give you a free HTTPS live URL:
+   `https://naijahealth-ai.onrender.com`
+

@@ -424,13 +424,88 @@ export const NIGERIAN_STATES_DATA: Record<string, StateHealthInfo> = {
   }
 };
 
-export const COMMON_SYMPTOM_PROMPTS = [
-  { label: 'Hot body & body pain', text: 'My body dey hot well-well and body dey pain me for 3 days, mouth dey bitter' },
-  { label: 'Belle bite & purging', text: 'My belle dey bite me and I dey purge watery stool since yesterday morning' },
-  { label: 'Cold chills & headache', text: 'Cold and shaking chills dey catch me, my head dey hammer, and body weak patapata' },
-  { label: 'Cough & chest tight', text: 'I get dry cough and my chest dey tight small with slight hot body' },
-  { label: 'Pikin hot body & vomit', text: 'My 3-year-old pikin body dey hot like fire, e don vomit twice and refuse to eat or drink' },
-  { label: '🚨 Heavy chest pain & breath seize', text: 'Sudden heavy chest pain dey hold me and my breath dey seize' }
+export interface SymptomPromptItem {
+  label: string;
+  text: string;
+  iconName: 'thermometer' | 'droplet' | 'zap' | 'wind' | 'heart' | 'alert' | 'activity';
+  bgColor: string;
+  textColor: string;
+  borderColor: string;
+  hoverColor: string;
+  dotColor: string;
+}
+
+export const COMMON_SYMPTOM_PROMPTS: SymptomPromptItem[] = [
+  { 
+    label: 'Hot body & body pain', 
+    text: 'My body dey hot well-well and body dey pain me for 3 days, mouth dey bitter',
+    iconName: 'thermometer',
+    bgColor: 'bg-amber-50',
+    textColor: 'text-amber-900',
+    borderColor: 'border-amber-200',
+    hoverColor: 'hover:bg-amber-100/90 hover:border-amber-300',
+    dotColor: 'bg-amber-500'
+  },
+  { 
+    label: 'Belle bite & purging', 
+    text: 'My belle dey bite me and I dey purge watery stool since yesterday morning',
+    iconName: 'droplet',
+    bgColor: 'bg-sky-50',
+    textColor: 'text-sky-900',
+    borderColor: 'border-sky-200',
+    hoverColor: 'hover:bg-sky-100/90 hover:border-sky-300',
+    dotColor: 'bg-sky-500'
+  },
+  { 
+    label: 'Cold chills & headache', 
+    text: 'Cold and shaking chills dey catch me, my head dey hammer, and body weak patapata',
+    iconName: 'zap',
+    bgColor: 'bg-purple-50',
+    textColor: 'text-purple-900',
+    borderColor: 'border-purple-200',
+    hoverColor: 'hover:bg-purple-100/90 hover:border-purple-300',
+    dotColor: 'bg-purple-500'
+  },
+  { 
+    label: 'Cough & chest tight', 
+    text: 'I get dry cough and my chest dey tight small with slight hot body',
+    iconName: 'wind',
+    bgColor: 'bg-teal-50',
+    textColor: 'text-teal-900',
+    borderColor: 'border-teal-200',
+    hoverColor: 'hover:bg-teal-100/90 hover:border-teal-300',
+    dotColor: 'bg-teal-600'
+  },
+  { 
+    label: 'Pikin hot body & vomit', 
+    text: 'My 3-year-old pikin body dey hot like fire, e don vomit twice and refuse to eat or drink',
+    iconName: 'heart',
+    bgColor: 'bg-rose-50',
+    textColor: 'text-rose-900',
+    borderColor: 'border-rose-200',
+    hoverColor: 'hover:bg-rose-100/90 hover:border-rose-300',
+    dotColor: 'bg-rose-500'
+  },
+  { 
+    label: 'Joint pains & bone crisis', 
+    text: 'I have severe waist, joint, and bone pains with extreme weakness',
+    iconName: 'activity',
+    bgColor: 'bg-indigo-50',
+    textColor: 'text-indigo-900',
+    borderColor: 'border-indigo-200',
+    hoverColor: 'hover:bg-indigo-100/90 hover:border-indigo-300',
+    dotColor: 'bg-indigo-500'
+  },
+  { 
+    label: 'Heavy chest pain & breath seize', 
+    text: 'Sudden heavy chest pain dey hold me and my breath dey seize',
+    iconName: 'alert',
+    bgColor: 'bg-red-50',
+    textColor: 'text-red-900',
+    borderColor: 'border-red-300',
+    hoverColor: 'hover:bg-red-100 hover:border-red-400 ring-1 ring-red-400/30',
+    dotColor: 'bg-red-600'
+  }
 ];
 
 export const FIRST_AID_GUIDES = [

@@ -7,7 +7,8 @@ import {
   MapPin, 
   PhoneCall, 
   Globe,
-  ChevronDown
+  Share2,
+  Check
 } from 'lucide-react';
 import { NIGERIAN_STATES_DATA } from '../data/nigeriaHealthcareData';
 import { SupportedLanguage, SUPPORTED_LANGUAGES } from '../types/triage';
@@ -31,7 +32,16 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenHospitals,
   onOpenFirstAid
 }) => {
+  const [copied, setCopied] = React.useState(false);
   const states = Object.keys(NIGERIAN_STATES_DATA);
+
+  const handleCopyAppUrl = () => {
+    const url = window.location.href.split('?')[0];
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
@@ -121,6 +131,26 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <BookOpen className="w-3.5 h-3.5 text-[#008751]" />
             <span>First Aid</span>
+          </button>
+
+          {/* Share App Link Button */}
+          <button
+            onClick={handleCopyAppUrl}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-stone-200/90 hover:border-emerald-300 hover:bg-emerald-50/50 text-stone-700 text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer"
+            title="Copy your app URL to share with others"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-700 font-bold">Link Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5 text-[#008751]" />
+                <span className="hidden sm:inline">Share App</span>
+                <span className="sm:hidden">Share</span>
+              </>
+            )}
           </button>
 
           {/* Red-Flag Emergency Button */}
