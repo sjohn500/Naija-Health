@@ -1,0 +1,6 @@
+{
+  "name": "NaijaHealth AI",
+  "description": "Empathetic AI Medical Triage Assistant delivering culturally attuned health guidance, red-flag emergency detection, and localized care routing across Nigeria.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
