@@ -5,17 +5,18 @@ import {
   HelpCircle, 
   Volume2, 
   VolumeX, 
-  Copy, 
   Check, 
-  Share2, 
   Building2, 
   Stethoscope, 
   Home, 
+  ArrowRight, 
+  ShieldAlert, 
+  Share2, 
+  MapPin, 
   Compass, 
-  MessageSquarePlus,
-  ShieldAlert
+  PhoneCall
 } from 'lucide-react';
-import { TriageResult } from '../types/triage';
+import { TriageResult, SupportedLanguage } from '../types/triage';
 
 interface TriageResultViewProps {
   triage: TriageResult;
@@ -31,7 +32,26 @@ export const TriageResultView: React.FC<TriageResultViewProps> = ({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Text to speech narration for accessibility and patient comfort
+  const lang = triage.language || 'pidgin';
+
+  const getSectionTitles = (language: SupportedLanguage) => {
+    switch (language) {
+      case 'english':
+        return { causes: 'Potential Causes', home: 'Home Management', action: 'Action Plan', listen: 'Listen Aloud' };
+      case 'hausa':
+        return { causes: 'Abubuwan Da Ka Iya Kawo Shi', home: 'Maganin Gida', action: 'Mataki Na Gaba', listen: 'Saurara da Murya' };
+      case 'yoruba':
+        return { causes: 'Kini O Le Fa E', home: 'Ohun Ti O Le Se Ni Ile', action: 'Igbese To Kan', listen: 'Gbọ́ àsọyé' };
+      case 'igbo':
+        return { causes: 'Ihe Nwere Ike Na-ebute Ya', home: 'Ihe I Nwere Ike Ime n\'Ulo', action: 'Ihe I Ga-eme Na-esonụ', listen: 'Ge nti' };
+      case 'pidgin':
+      default:
+        return { causes: 'Wetin Fit Dey Happen', home: 'Wetin You Fit Do For House', action: 'Next Step', listen: 'Listen (Gbo am)' };
+    }
+  };
+
+  const titles = getSectionTitles(lang);
+
   const handleToggleSpeech = () => {
     if (!('speechSynthesis' in window)) {
       alert('Text-to-speech is not supported by your browser.');
@@ -47,8 +67,8 @@ export const TriageResultView: React.FC<TriageResultViewProps> = ({
     window.speechSynthesis.cancel();
 
     const textToRead = triage.isRedFlag
-      ? `Emergency Alert. Red-flag symptoms detected. ${triage.emergencyWarning || ''}. Action plan: ${triage.actionPlan}.`
-      : `Potential Causes: ${triage.potentialCauses}. Home Management: ${triage.homeManagement}. Action Plan: ${triage.actionPlan}.`;
+      ? `${triage.empathyNote || ''}. Emergency alert! ${triage.emergencyWarning || ''}. Action: ${triage.nextStep || triage.actionPlan}.`
+      : `${triage.empathyNote || ''}. ${titles.causes}: ${triage.wetinFitDeyHappen || triage.potentialCauses}. ${titles.home}: ${triage.wetinYouFitDoForHouse || triage.homeManagement}. ${titles.action}: ${triage.nextStep || triage.actionPlan}.`;
 
     const utterance = new SpeechSynthesisUtterance(textToRead);
     utterance.rate = 0.95;
@@ -61,228 +81,249 @@ export const TriageResultView: React.FC<TriageResultViewProps> = ({
     setIsPlayingAudio(true);
   };
 
-  const handleCopy = () => {
-    const fullSummary = `NAIJAHEALTH AI MEDICAL TRIAGE REPORT
-Urgency: ${triage.urgencyLevel.toUpperCase()}
-Location: ${triage.detectedLocation || 'Nigeria'}
+  const handleCopyWhatsApp = () => {
+    const causes = triage.wetinFitDeyHappen || triage.potentialCauses || '';
+    const home = triage.wetinYouFitDoForHouse || triage.homeManagement || '';
+    const next = triage.nextStep || triage.actionPlan || '';
 
-[Potential Causes]:
-${triage.potentialCauses}
+    const whatsappFormat = `*🟢 NAIJAHEALTH AI TRIAGE REPORT*
+*Location:* ${triage.detectedLocation || 'Nigeria'}
+*Urgency:* ${triage.isRedFlag ? '🚨 RED-FLAG EMERGENCY' : triage.urgencyLevel === 'urgent' ? '🟡 ATTENTION NEEDED' : '🟢 STABLE'}
 
-[Home Management]:
-${triage.isRedFlag ? 'BYPASSED - IMMEDIATE HOSPITAL CARE REQUIRED' : triage.homeManagement}
+${triage.empathyNote ? `_${triage.empathyNote}_\n\n` : ''}*1. [${titles.causes}]*
+${causes}
 
-[Action Plan]:
-${triage.actionPlan}
+*2. [${titles.home}]*
+${triage.isRedFlag ? '❌ ALL HOME REMEDIES CANCELLED! RUSH TO HOSPITAL IMMEDIATELY!' : home}
 
-${triage.disclaimer}`;
+*3. [${titles.action}]*
+${next}
 
-    navigator.clipboard.writeText(fullSummary).then(() => {
+---------------------------------
+_${triage.disclaimer}_`;
+
+    navigator.clipboard.writeText(whatsappFormat).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     });
   };
 
+  const causesText = triage.wetinFitDeyHappen || triage.potentialCauses;
+  const homeText = triage.wetinYouFitDoForHouse || triage.homeManagement;
+  const nextStepText = triage.nextStep || triage.actionPlan;
+
   return (
-    <div className={`rounded-3xl border shadow-sm overflow-hidden transition-all ${
+    <div className={`rounded-2xl bg-white border transition-all overflow-hidden ${
       triage.isRedFlag 
-        ? 'border-red-500 bg-red-50/20 shadow-red-500/10' 
+        ? 'border-red-400 shadow-[0_4px_24px_rgba(220,38,38,0.08)] ring-1 ring-red-400/40' 
         : triage.urgencyLevel === 'urgent'
-        ? 'border-amber-300 bg-amber-50/20'
-        : 'border-emerald-200 bg-emerald-50/20'
+        ? 'border-amber-300 shadow-[0_4px_20px_rgba(217,119,6,0.06)]'
+        : 'border-emerald-200/90 shadow-[0_4px_20px_rgba(0,135,81,0.06)]'
     }`}>
-      {/* Urgency Badge Banner */}
-      <div className={`px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 text-white ${
+      {/* Sleek Top Clinical Ribbon */}
+      <div className={`px-4 sm:px-5 py-3 border-b flex flex-wrap items-center justify-between gap-2.5 ${
         triage.isRedFlag 
-          ? 'bg-gradient-to-r from-red-600 to-rose-700' 
+          ? 'bg-red-50/90 border-red-200 text-red-900' 
           : triage.urgencyLevel === 'urgent'
-          ? 'bg-gradient-to-r from-amber-600 to-yellow-600'
-          : 'bg-gradient-to-r from-emerald-600 to-teal-700'
+          ? 'bg-amber-50/80 border-amber-200/80 text-amber-900'
+          : 'bg-[#F4F9F6] border-emerald-100 text-[#05472A]'
       }`}>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {triage.isRedFlag ? (
-            <ShieldAlert className="w-5 h-5 text-white animate-pulse" />
+            <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
           ) : triage.urgencyLevel === 'urgent' ? (
-            <AlertTriangle className="w-5 h-5 text-white" />
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
           ) : (
-            <CheckCircle2 className="w-5 h-5 text-white" />
+            <CheckCircle2 className="w-4 h-4 text-[#008751] shrink-0" />
           )}
-          <div>
-            <span className="font-extrabold text-xs sm:text-sm tracking-wide uppercase">
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-xs tracking-wider uppercase">
               {triage.isRedFlag 
-                ? '🔴 RED-FLAG EMERGENCY: SEEK IMMEDIATE PHYSICAL CARE' 
+                ? 'Emergency Evaluation' 
                 : triage.urgencyLevel === 'urgent'
-                ? '🟡 MODERATE URGENCY: CLINIC / HOSPITAL EVALUATION NEEDED'
-                : '🟢 MILD / STABLE: SAFE HOME CARE & MONITORING'}
+                ? 'Clinical Review Advised'
+                : 'Routine Care / Safe at Home'}
             </span>
             {triage.detectedLocation && (
-              <span className="ml-2 text-[11px] opacity-90 font-medium">
-                • {triage.detectedLocation}
+              <span className="text-[11px] font-medium text-stone-500 flex items-center gap-0.5">
+                <MapPin className="w-3 h-3 text-[#008751]" />
+                {triage.detectedLocation}
               </span>
             )}
           </div>
         </div>
 
-        {/* Action icons (Read aloud + copy) */}
-        <div className="flex items-center gap-2">
+        {/* Action icons */}
+        <div className="flex items-center gap-1.5">
           <button
             onClick={handleToggleSpeech}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-black/20 hover:bg-black/30 text-white text-xs font-semibold backdrop-blur-xs transition-colors"
-            title={isPlayingAudio ? 'Stop audio' : 'Listen to triage summary'}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              isPlayingAudio 
+                ? 'bg-red-600 text-white' 
+                : 'bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 shadow-2xs'
+            }`}
+            title="Read out loud"
           >
-            {isPlayingAudio ? <VolumeX className="w-3.5 h-3.5 text-red-200" /> : <Volume2 className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isPlayingAudio ? 'Stop' : 'Listen'}</span>
+            {isPlayingAudio ? (
+              <>
+                <VolumeX className="w-3.5 h-3.5" />
+                <span>Stop</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-3.5 h-3.5 text-[#008751]" />
+                <span>{titles.listen}</span>
+              </>
+            )}
           </button>
           
           <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-black/20 hover:bg-black/30 text-white text-xs font-semibold backdrop-blur-xs transition-colors"
-            title="Copy triage summary for your doctor or nurse"
+            onClick={handleCopyWhatsApp}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 text-xs font-semibold shadow-2xs transition-colors"
+            title="Share via WhatsApp"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-200" /> : <Copy className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{copied ? 'Copied' : 'Share / Copy'}</span>
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5 text-stone-500" />}
+            <span className="hidden sm:inline">{copied ? 'Copied' : 'Share'}</span>
           </button>
         </div>
       </div>
 
-      {/* Critical Red-Flag Warning Banner if Triggered */}
+      {/* Empathy Note */}
+      {triage.empathyNote && (
+        <div className="px-5 pt-4 text-xs sm:text-sm font-semibold text-[#008751] flex items-center gap-1.5">
+          <span>💚</span>
+          <span>{triage.empathyNote}</span>
+        </div>
+      )}
+
+      {/* Red-Flag Urgent Callout if Active */}
       {triage.isRedFlag && (
-        <div className="m-4 p-4 rounded-2xl bg-red-100 border-2 border-red-400 text-red-950">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-bold text-sm text-red-900">
-                CRITICAL SAFETY OVERRIDE: Home Remedies Bypassed
-              </h4>
-              <p className="text-xs text-red-800 mt-1 leading-relaxed">
-                {triage.emergencyWarning || 
-                  'Your symptoms indicate a serious medical emergency. Do not attempt home treatments or self-medication. Proceed immediately to the emergency unit of the nearest General Hospital or Teaching Hospital.'}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
-                <a 
-                  href="tel:112"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700"
-                >
-                  Dial National 112
-                </a>
-                <a 
-                  href="tel:6232"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-red-300 text-red-800 hover:bg-red-50"
-                >
-                  NCDC Helpline 6232
-                </a>
-              </div>
-            </div>
+        <div className="m-4 p-4 rounded-xl bg-red-600 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h4 className="font-bold text-sm tracking-tight flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-white" />
+              <span>Immediate Medical Attention Required</span>
+            </h4>
+            <p className="text-xs text-red-100 mt-0.5 leading-relaxed">
+              {triage.emergencyWarning || 'Red-flag symptoms detected. Do not attempt home treatment.'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a 
+              href="tel:112"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white text-red-700 font-bold text-xs hover:bg-red-50 transition-colors shadow-2xs"
+            >
+              <PhoneCall className="w-3.5 h-3.5 text-red-600" />
+              <span>Call 112 Free</span>
+            </a>
           </div>
         </div>
       )}
 
-      {/* 3 Concise Structured Sections */}
-      <div className="p-5 sm:p-6 space-y-5">
-        {/* Section 1: [Potential Causes] */}
-        <div className="rounded-2xl p-4 bg-white border border-stone-200 shadow-2xs">
-          <div className="flex items-center gap-2 mb-2 text-emerald-800 font-bold text-sm sm:text-base">
-            <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
-              <Stethoscope className="w-4 h-4" />
-            </div>
-            <span>[Potential Causes]</span>
+      {/* 3 Structured Sections - Clean Medical Style */}
+      <div className="p-4 sm:p-5 space-y-4">
+        {/* 1. Potential Causes */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 text-stone-900 font-bold text-xs sm:text-sm">
+            <span className="flex items-center justify-center w-5 h-5 rounded-md bg-emerald-100 text-[#008751] font-bold text-xs">
+              1
+            </span>
+            <span className="text-[#05472A] tracking-tight">[{titles.causes}]</span>
           </div>
-          <div className="text-stone-700 text-xs sm:text-sm leading-relaxed whitespace-pre-line pl-1">
-            {triage.potentialCauses}
-          </div>
+          <p className="text-xs sm:text-sm text-stone-700 leading-relaxed pl-7 whitespace-pre-line">
+            {causesText}
+          </p>
         </div>
 
-        {/* Section 2: [Home Management] */}
-        <div className={`rounded-2xl p-4 border shadow-2xs ${
-          triage.isRedFlag 
-            ? 'bg-stone-50 border-stone-200 opacity-90' 
-            : 'bg-white border-stone-200'
-        }`}>
-          <div className="flex items-center gap-2 mb-2 text-stone-800 font-bold text-sm sm:text-base">
-            <div className={`p-1.5 rounded-lg ${triage.isRedFlag ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-700'}`}>
-              <Home className="w-4 h-4" />
-            </div>
-            <span>[Home Management]</span>
+        <div className="border-t border-stone-100" />
+
+        {/* 2. Home Management */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 text-stone-900 font-bold text-xs sm:text-sm">
+            <span className={`flex items-center justify-center w-5 h-5 rounded-md font-bold text-xs ${
+              triage.isRedFlag ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-[#008751]'
+            }`}>
+              2
+            </span>
+            <span className="text-[#05472A] tracking-tight">[{titles.home}]</span>
             {triage.isRedFlag && (
-              <span className="text-[11px] font-semibold text-red-600 ml-auto bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
-                Bypassed for Safety
+              <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md border border-red-200 ml-auto">
+                Bypassed
               </span>
             )}
           </div>
-          <div className={`text-xs sm:text-sm leading-relaxed whitespace-pre-line pl-1 ${
-            triage.isRedFlag ? 'text-stone-500 italic' : 'text-stone-700'
+          <p className={`text-xs sm:text-sm leading-relaxed pl-7 whitespace-pre-line ${
+            triage.isRedFlag ? 'text-red-700 font-medium italic' : 'text-stone-700'
           }`}>
-            {triage.homeManagement || (triage.isRedFlag ? 'Home remedies are withheld due to emergency warning signs. Rush immediately to emergency care.' : 'No special home management required beyond adequate rest and clean water.')}
-          </div>
+            {homeText || (triage.isRedFlag ? 'Home remedies are withheld due to emergency warning signs. Rush immediately to emergency care.' : 'Ensure adequate rest and hydration with clean drinking water.')}
+          </p>
         </div>
 
-        {/* Section 3: [Action Plan] */}
-        <div className="rounded-2xl p-4 bg-white border border-stone-200 shadow-2xs">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2 text-stone-900 font-bold text-sm sm:text-base">
-              <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700">
-                <Compass className="w-4 h-4" />
-              </div>
-              <span>[Action Plan]</span>
+        <div className="border-t border-stone-100" />
+
+        {/* 3. Action Plan */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-stone-900 font-bold text-xs sm:text-sm">
+              <span className="flex items-center justify-center w-5 h-5 rounded-md bg-emerald-100 text-[#008751] font-bold text-xs">
+                3
+              </span>
+              <span className="text-[#05472A] tracking-tight">[{titles.action}]</span>
             </div>
             <button
               onClick={onOpenHospitals}
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1"
+              className="text-[11px] font-semibold text-[#008751] hover:underline flex items-center gap-1"
             >
               <Building2 className="w-3.5 h-3.5" />
               <span>Browse Hospitals</span>
             </button>
           </div>
-          <div className="text-stone-700 text-xs sm:text-sm leading-relaxed whitespace-pre-line pl-1">
-            {triage.actionPlan}
-          </div>
+          <p className="text-xs sm:text-sm text-stone-700 leading-relaxed pl-7 whitespace-pre-line">
+            {nextStepText}
+          </p>
 
-          {/* Recommended Local Facilities Chips */}
+          {/* Recommended Facilities Chips */}
           {triage.recommendedFacilities && triage.recommendedFacilities.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-stone-100">
-              <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block mb-1.5">
-                Target Facilities in {triage.detectedLocation || 'Your Area'}:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {triage.recommendedFacilities.map((fac, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-100 text-stone-800 text-xs font-medium border border-stone-200"
-                  >
-                    <Building2 className="w-3 h-3 text-emerald-600" />
-                    {fac}
-                  </span>
-                ))}
-              </div>
+            <div className="pl-7 pt-2 flex flex-wrap gap-1.5">
+              {triage.recommendedFacilities.map((fac, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-50 text-stone-800 text-[11px] font-medium border border-stone-200"
+                >
+                  <Building2 className="w-3 h-3 text-[#008751]" />
+                  <span>{fac}</span>
+                </span>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Clarifying Questions (Follow-up chips) */}
+        {/* Follow-up / Clarifying Questions */}
         {triage.clarifyingQuestions && triage.clarifyingQuestions.length > 0 && (
-          <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80">
-            <div className="flex items-center gap-2 text-amber-900 font-bold text-xs sm:text-sm mb-2">
-              <HelpCircle className="w-4 h-4 text-amber-600" />
-              <span>Clarifying Questions to Better Help You:</span>
+          <div className="mt-3 p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/60 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-amber-900 font-semibold text-xs">
+              <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+              <span>Clarifying details:</span>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {triage.clarifyingQuestions.map((q, idx) => (
                 <button
                   key={idx}
                   onClick={() => onSelectClarifyingQuestion(q)}
-                  className="w-full text-left p-2.5 rounded-xl bg-white hover:bg-amber-100/50 border border-amber-200/60 text-xs text-stone-800 hover:text-amber-950 font-medium transition-colors flex items-center justify-between gap-2 group"
+                  className="w-full text-left p-2 rounded-lg bg-white hover:bg-amber-100/40 border border-amber-200/50 text-xs text-stone-700 hover:text-stone-900 transition-colors flex items-center justify-between gap-2 group"
                 >
                   <span>{q}</span>
-                  <MessageSquarePlus className="w-3.5 h-3.5 text-amber-600 shrink-0 group-hover:scale-110 transition-transform" />
+                  <ArrowRight className="w-3.5 h-3.5 text-amber-600 shrink-0 group-hover:translate-x-0.5 transition-transform" />
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Safety Disclaimer */}
-        <div className="pt-2 text-[11px] text-stone-500 italic border-t border-stone-200/60 leading-normal">
-          {triage.disclaimer || '⚠️ Disclaimer: NaijaHealth AI is an informational triage support tool and does not provide formal medical diagnoses or prescriptions. In emergencies, please visit the nearest hospital or call 112 immediately.'}
+        {/* Subtle Disclaimer Footer */}
+        <div className="pt-2 text-[10px] text-stone-400 leading-normal border-t border-stone-100">
+          {triage.disclaimer || '⚠️ Medical Disclaimer: NaijaHealth AI is an informational triage support tool and does not provide formal medical diagnoses or prescriptions. In emergencies, visit the nearest hospital or call 112 immediately.'}
         </div>
       </div>
     </div>

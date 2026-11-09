@@ -46,10 +46,10 @@ export const FirstAidModal: React.FC<FirstAidModalProps> = ({
         aria-labelledby="first-aid-title"
       >
         {/* Header */}
-        <div className="bg-teal-900 px-6 py-5 text-white flex items-start justify-between gap-4">
+        <div className="bg-[#05472A] px-6 py-5 text-white flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-teal-800/80 rounded-2xl border border-teal-700/60">
-              <BookOpen className="w-6 h-6 text-teal-300" />
+            <div className="p-2.5 bg-white/10 rounded-2xl border border-white/15">
+              <BookOpen className="w-6 h-6 text-emerald-300" />
             </div>
             <div>
               <span className="inline-block px-2 py-0.5 rounded-full bg-teal-800 text-teal-200 font-semibold text-[10px] uppercase tracking-wider mb-0.5">

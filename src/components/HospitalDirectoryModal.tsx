@@ -54,9 +54,9 @@ export const HospitalDirectoryModal: React.FC<HospitalDirectoryModalProps> = ({
         aria-labelledby="hospital-directory-title"
       >
         {/* Header */}
-        <div className="bg-emerald-900 px-6 py-5 text-white flex items-start justify-between gap-4">
+        <div className="bg-[#05472A] px-6 py-5 text-white flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-800/80 rounded-2xl border border-emerald-700/60">
+            <div className="p-2.5 bg-white/10 rounded-2xl border border-white/15">
               <Building2 className="w-6 h-6 text-emerald-300" />
             </div>
             <div>

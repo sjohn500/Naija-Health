@@ -425,12 +425,12 @@ export const NIGERIAN_STATES_DATA: Record<string, StateHealthInfo> = {
 };
 
 export const COMMON_SYMPTOM_PROMPTS = [
-  { label: 'Hot body / High Fever', text: 'I have high fever and severe body pain for 3 days with bitter taste in my mouth' },
-  { label: 'Purging & Stomach biting', text: 'I have severe watery purging and stomach cramping since yesterday morning' },
-  { label: 'Severe headache & Chills', text: 'I am experiencing shaking chills, intense headache, and general body weakness' },
-  { label: 'Cough with Chest tightness', text: 'I have a dry irritating cough with mild chest tightness and slight fever' },
-  { label: 'Vomiting & Refusing food (Child)', text: 'My 3-year-old child has hot body, vomited twice, and refuses to eat or drink' },
-  { label: 'Sharp chest pain & Breathlessness', text: 'I have sudden sharp chest pain and severe difficulty breathing' }
+  { label: 'Hot body & body pain', text: 'My body dey hot well-well and body dey pain me for 3 days, mouth dey bitter' },
+  { label: 'Belle bite & purging', text: 'My belle dey bite me and I dey purge watery stool since yesterday morning' },
+  { label: 'Cold chills & headache', text: 'Cold and shaking chills dey catch me, my head dey hammer, and body weak patapata' },
+  { label: 'Cough & chest tight', text: 'I get dry cough and my chest dey tight small with slight hot body' },
+  { label: 'Pikin hot body & vomit', text: 'My 3-year-old pikin body dey hot like fire, e don vomit twice and refuse to eat or drink' },
+  { label: '🚨 Heavy chest pain & breath seize', text: 'Sudden heavy chest pain dey hold me and my breath dey seize' }
 ];
 
 export const FIRST_AID_GUIDES = [
