@@ -138,8 +138,19 @@ app.get('/api/facilities', (req: Request, res: Response) => {
 app.post('/api/triage', async (req: Request, res: Response) => {
   const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
   const targetLang = resolveTargetLanguage(req.body?.language, message, Boolean(req.body?.languageLocked));
-  const conversationHistory = Array.isArray(req.body?.conversationHistory) ? req.body.conversationHistory : [];
+  const privateMode = Boolean(req.body?.privateMode);
+  // Private mode never accepts client history: nothing to retain, nothing to replay.
+  const conversationHistory = privateMode
+    ? []
+    : Array.isArray(req.body?.conversationHistory)
+    ? req.body.conversationHistory
+    : [];
   const userLocation = req.body?.userLocation;
+
+  if (privateMode) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+  }
 
   if (!message) {
     return res.status(400).json({ error: 'Symptom description message is required.' });
@@ -185,6 +196,20 @@ app.post('/api/triage', async (req: Request, res: Response) => {
   const systemInstruction = `You are "NaijaHealth AI", an empathetic, culturally grounded medical triage assistant supporting communities across Nigeria.
 TARGET LANGUAGE: ${targetLang.toUpperCase()}
 LANGUAGE REQUIREMENT: ${languageSpecs[targetLang]}
+
+PRIVATE CARE MODE (SENSITIVE HEALTH):
+The user may be asking about HIV, sexual health, or a medication they take daily. They may NEVER name their condition, and you must not require them to.
+- Work from indirect language ("the drugs I take every night", "my condition", "I had a risk last week") without asking them to confirm a diagnosis or status.
+- NEVER diagnose HIV or any condition. NEVER say a test result is negative or positive — a negative test inside the window period does not mean negative; say the window period and advise a repeat test.
+- NEVER tell anyone to start, stop, skip, switch or halve ARV/ART medication, and never give ARV doses. Adherence support and referral only.
+- If exposure to HIV is possible and less than 72 hours have passed, treat it as time-critical: say PEP must start within 72 hours, and send them to a public hospital PEP/ART unit today.
+- U=U (undetectable = untransmittable) may be mentioned ONLY when the person says a clinician confirmed their viral load is suppressed.
+- Side effects that need same-day care: spreading rash with fever or peeling skin, yellow eyes/dark urine, severe abdominal pain, difficulty breathing, confusion, fainting.
+- If a clinic has no stock, advise an emergency refill or transfer slip at a public ART site, calling ahead to confirm stock. NEVER advise buying ART from an unverified seller, and remind them a genuine pack carries a NAFDAC number.
+- Never claim any cure, including herbal mixtures or "agbo". Never suggest stopping treatment for spiritual reasons.
+- Confidentiality: never ask for a name, phone number, address or any identifying detail. Remind them, when relevant, that clinics are legally required to keep their status confidential in Nigeria (HIV/AIDS Anti-Discrimination Act 2014).
+- If they mention being threatened, assaulted, or in danger because of their status, prioritise their physical safety and 112 over disclosure advice.
+- An empathic, non-judgemental tone is mandatory. No blame, no moralising.
 
 CLINICAL & CULTURAL GUIDANCE:
 - Avoid complex medical terminology; explain gently in plain everyday language so anyone in a Nigerian market can understand.
@@ -282,12 +307,16 @@ Respond in JSON with every narrative string written in ${targetLang.toUpperCase(
     ],
   };
 
+  const effectiveInstruction = privateMode
+    ? `${systemInstruction}\n\nPRIVACY: This is a private session. Do not ask for identifying details and do not request history.`
+    : systemInstruction;
+
   async function callTriageModel(modelName: string, thinkingLevel: ThinkingLevel) {
     const genPromise = ai!.models.generateContent({
       model: modelName,
       contents: promptText,
       config: {
-        systemInstruction,
+        systemInstruction: effectiveInstruction,
         thinkingConfig: { thinkingLevel },
         responseMimeType: 'application/json',
         responseSchema: baseSchema,
@@ -372,6 +401,53 @@ Respond in JSON with every narrative string written in ${targetLang.toUpperCase(
     const fallbackResult = buildFallbackTriage(message, targetState, targetLang);
     return res.json(fallbackResult);
   }
+});
+
+// Anonymous ART stockout reports.
+// Deliberately stores no identifiers: only a facility key, a count and a timestamp.
+const STOCKOUT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const stockoutReports = new Map<string, { state: string; count: number; lastReportedAt: number }>();
+
+function pruneStockouts() {
+  const cutoff = Date.now() - STOCKOUT_TTL_MS;
+  for (const [key, value] of stockoutReports) {
+    if (value.lastReportedAt < cutoff) stockoutReports.delete(key);
+  }
+}
+
+app.post('/api/stockout-report', (req: Request, res: Response) => {
+  const siteId = typeof req.body?.siteId === 'string' ? req.body.siteId.slice(0, 120) : '';
+  const state = typeof req.body?.state === 'string' ? req.body.state.slice(0, 60) : '';
+  // siteName is accepted for logging context only, and never stored.
+  if (!siteId || !state) {
+    return res.status(400).json({ error: 'siteId and state are required.' });
+  }
+  pruneStockouts();
+  const key = siteId;
+  const existing = stockoutReports.get(key);
+  const next = {
+    state,
+    count: (existing?.count || 0) + 1,
+    lastReportedAt: Date.now(),
+  };
+  stockoutReports.set(key, next);
+  res.setHeader('Cache-Control', 'no-store');
+  return res.json({ ok: true, siteId: key, count: next.count });
+});
+
+app.get('/api/stockout-report', (req: Request, res: Response) => {
+  pruneStockouts();
+  const state = typeof req.query.state === 'string' ? req.query.state : '';
+  const reports: Record<string, { count: number; lastReportedAt: string }> = {};
+  for (const [siteId, value] of stockoutReports) {
+    if (state && value.state !== state) continue;
+    reports[siteId] = {
+      count: value.count,
+      lastReportedAt: new Date(value.lastReportedAt).toISOString(),
+    };
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  return res.json({ state: state || 'all', reports });
 });
 
 // Multilingual Text-to-Speech Endpoint using Gemini TTS (Pidgin, English, Hausa, Yoruba, Igbo)
