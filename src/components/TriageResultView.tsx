@@ -25,6 +25,11 @@ interface TriageResultViewProps {
   onSelectClarifyingQuestion: (question: string) => void;
   onOpenHospitals: () => void;
   onOpenFirstAid?: (guideId: string) => void;
+  /**
+   * Private mode: no read-aloud (it would disclose in a shared room) and the
+   * share action copies appointment details only, never the condition.
+   */
+  discreet?: boolean;
 }
 
 export const TriageResultView: React.FC<TriageResultViewProps> = ({
@@ -32,6 +37,7 @@ export const TriageResultView: React.FC<TriageResultViewProps> = ({
   onSelectClarifyingQuestion,
   onOpenHospitals,
   onOpenFirstAid,
+  discreet = false,
 }) => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -171,6 +177,17 @@ export const TriageResultView: React.FC<TriageResultViewProps> = ({
   };
 
   const handleCopyWhatsApp = () => {
+    if (discreet) {
+      // Deliberately carries no symptom, no condition, no guidance — only enough
+      // to find the place. Forwarding this can never out anyone.
+      const safeText = `NaijaHealth AI — ${triage.detectedLocation || 'Nigeria'}\n${tc.browseHospitals}`;
+      navigator.clipboard.writeText(safeText).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      });
+      return;
+    }
+
     const whatsappFormat = `${tc.whatsappHeader}
 ${tc.whatsappLocation} ${triage.detectedLocation || 'Nigeria'}
 ${tc.whatsappUrgency} ${
@@ -394,6 +411,7 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
       )}
 
       <div className="answer-actions">
+        {!discreet && (
         <button
           type="button"
           onClick={handleToggleSpeech}
@@ -417,6 +435,7 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
             </>
           )}
         </button>
+        )}
 
         <button type="button" onClick={onOpenHospitals} className="btn btn-outline btn-sm">
           <Building2 className="w-3.5 h-3.5" strokeWidth={2.2} />

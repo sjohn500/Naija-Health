@@ -26,17 +26,21 @@ import {
   ArrowRight,
   Building2,
   Baby,
+  Lock,
 } from 'lucide-react';
 import { Header } from './components/Header';
 import { EmergencyModal } from './components/EmergencyModal';
 import { HospitalDirectoryModal } from './components/HospitalDirectoryModal';
 import { FirstAidModal } from './components/FirstAidModal';
+import { PrivateChatView } from './components/PrivateChatView';
+import { ArtDirectory } from './components/ArtDirectory';
 import { TriageResultView } from './components/TriageResultView';
 import { ResilientImage } from './components/ResilientImage';
 import { ChatMessage, TriageResult, SupportedLanguage, SUPPORTED_LANGUAGES } from './types/triage';
 import { NIGERIAN_STATES_DATA } from './data/nigeriaHealthcareData';
 import { TRANSLATIONS } from './data/localization';
 import { VISUAL_ASSETS } from './data/visualAssets';
+import { privateUi } from './data/privateCare';
 
 type ViewMode = 'clinic' | 'whatsapp';
 
@@ -62,6 +66,8 @@ export default function App() {
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState<boolean>(false);
   const [isHospitalsModalOpen, setIsHospitalsModalOpen] = useState<boolean>(false);
   const [isFirstAidModalOpen, setIsFirstAidModalOpen] = useState<boolean>(false);
+  const [isPrivateChatOpen, setIsPrivateChatOpen] = useState<boolean>(false);
+  const [isArtDirectoryOpen, setIsArtDirectoryOpen] = useState<boolean>(false);
   const [firstAidGuideId, setFirstAidGuideId] = useState<string>('ors');
 
   const openFirstAidGuide = (guideId?: string) => {
@@ -476,6 +482,8 @@ export default function App() {
   const facilityCount =
     NIGERIAN_STATES_DATA[selectedState]?.facilities?.length ?? 0;
 
+  const pui = privateUi(selectedLanguage);
+
   const [composerShake, setComposerShake] = useState<boolean>(false);
 
   const guideCards = [
@@ -690,6 +698,41 @@ export default function App() {
                     </li>
                   ))}
                 </ul>
+
+                <div
+                  className="row-card"
+                  style={{ marginTop: 18, background: 'var(--surface-2)', alignItems: 'center' }}
+                >
+                  <span
+                    className="ico"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 11,
+                      display: 'grid',
+                      placeItems: 'center',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--brand)',
+                      flex: 'none',
+                    }}
+                    aria-hidden="true"
+                  >
+                    <Lock className="w-4 h-4" strokeWidth={2} />
+                  </span>
+                  <div className="rc-body">
+                    <b>{pui.entryTitle}</b>
+                    <span>{pui.entrySub}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setIsPrivateChatOpen(true)}
+                  >
+                    {pui.entryTitle}
+                    <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.4} />
+                  </button>
+                </div>
 
                 {recognitionError && (
                   <p className="answer-note" style={{ color: 'var(--danger)', borderTop: 0, marginTop: 10 }}>
@@ -1110,11 +1153,24 @@ export default function App() {
               <button type="button" onClick={() => setIsHospitalsModalOpen(true)}>
                 {t.welcomeShowcase.hospitalsCta}
               </button>
+              <button type="button" onClick={() => setIsArtDirectoryOpen(true)}>
+                {pui.artTitle}
+              </button>
               <button type="button" onClick={() => openFirstAidGuide('ors')}>
                 {t.header.firstAid}
               </button>
+            </div>
+
+            <div className="f-col">
+              <h4>{pui.entryTitle}</h4>
+              <button type="button" onClick={() => setIsPrivateChatOpen(true)}>
+                {pui.entryTitle}
+              </button>
               <button type="button" onClick={() => openFirstAidGuide('pregnancy')}>
                 {t.welcomeShowcase.pregnancyCta}
+              </button>
+              <button type="button" onClick={() => openFirstAidGuide('choking')}>
+                {t.visuals.cards.choking.title}
               </button>
             </div>
 
@@ -1159,6 +1215,21 @@ export default function App() {
         isOpen={isHospitalsModalOpen}
         onClose={() => setIsHospitalsModalOpen(false)}
         defaultState={selectedState}
+      />
+
+      <PrivateChatView
+        isOpen={isPrivateChatOpen}
+        onClose={() => setIsPrivateChatOpen(false)}
+        state={selectedState}
+        lang={selectedLanguage}
+        onOpenArt={() => setIsArtDirectoryOpen(true)}
+      />
+
+      <ArtDirectory
+        isOpen={isArtDirectoryOpen}
+        onClose={() => setIsArtDirectoryOpen(false)}
+        defaultState={selectedState}
+        lang={selectedLanguage}
       />
 
       <FirstAidModal

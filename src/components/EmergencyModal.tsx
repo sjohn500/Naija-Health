@@ -39,30 +39,16 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
         aria-modal="true"
         aria-labelledby="emergency-modal-title"
       >
-        {/* Red Warning Header */}
-        <div className="bg-red-600 px-6 py-5 text-white flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="p-2.5 bg-white/20 rounded-2xl backdrop-blur-md">
-              <AlertOctagon className="w-8 h-8 text-white animate-pulse" />
-            </div>
-            <div>
-              <span className="inline-block px-2.5 py-0.5 rounded-full bg-red-800 text-red-100 font-bold text-[10px] uppercase tracking-wider mb-1">
-                Immediate Hospital Care Protocol
-              </span>
-              <h2 id="emergency-modal-title" className="text-xl sm:text-2xl font-extrabold tracking-tight">
-                Critical Red-Flag Symptoms
-              </h2>
-              <p className="text-red-100 text-xs sm:text-sm mt-0.5">
-                Bypass all home remedies. Go directly to an emergency department.
-              </p>
-            </div>
+        <div className="modal-head is-danger">
+          <span className="ico" aria-hidden="true">
+            <AlertOctagon className="w-5 h-5" strokeWidth={2} />
+          </span>
+          <div>
+            <h2 id="emergency-modal-title">Critical red-flag symptoms</h2>
+            <p className="sub">Bypass all home remedies. Go directly to an emergency department.</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-red-700/80 transition-colors"
-            aria-label="Close emergency modal"
-          >
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="modal-close" aria-label="Close emergency modal">
+            <X className="w-4 h-4" strokeWidth={2.2} />
           </button>
         </div>
 
