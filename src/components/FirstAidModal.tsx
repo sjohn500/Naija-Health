@@ -70,30 +70,16 @@ export const FirstAidModal: React.FC<FirstAidModalProps> = ({
         aria-modal="true"
         aria-labelledby="first-aid-title"
       >
-        {/* Header */}
-        <div className="bg-[#05472A] px-6 py-5 text-white flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/10 rounded-2xl border border-white/15">
-              <BookOpen className="w-6 h-6 text-emerald-300" />
-            </div>
-            <div>
-              <span className="inline-block px-2 py-0.5 rounded-full bg-teal-800 text-teal-200 font-semibold text-[10px] uppercase tracking-wider mb-0.5">
-                First-Aid & Safe Home Protocols
-              </span>
-              <h2 id="first-aid-title" className="text-xl sm:text-2xl font-bold tracking-tight">
-                Practical First-Aid Guides
-              </h2>
-              <p className="text-teal-200/80 text-xs mt-0.5">
-                Standard, evidence-based home care steps recommended across Nigerian communities
-              </p>
-            </div>
+        <div className="modal-head">
+          <span className="ico" aria-hidden="true">
+            <BookOpen className="w-5 h-5" strokeWidth={2} />
+          </span>
+          <div>
+            <h2 id="first-aid-title">Practical first-aid guides</h2>
+            <p className="sub">Evidence-based home care steps for Nigerian households.</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-teal-200 hover:text-white hover:bg-teal-800 transition-colors cursor-pointer"
-            aria-label="Close guides"
-          >
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="modal-close" aria-label="Close guides">
+            <X className="w-4 h-4" strokeWidth={2.2} />
           </button>
         </div>
 
