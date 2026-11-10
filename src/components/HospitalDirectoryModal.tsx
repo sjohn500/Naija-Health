@@ -62,30 +62,16 @@ export const HospitalDirectoryModal: React.FC<HospitalDirectoryModalProps> = ({
         aria-modal="true"
         aria-labelledby="hospital-directory-title"
       >
-        {/* Header */}
-        <div className="bg-[#05472A] px-6 py-5 text-white flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/10 rounded-2xl border border-white/15">
-              <Building2 className="w-6 h-6 text-emerald-300" />
-            </div>
-            <div>
-              <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-800 text-emerald-200 font-semibold text-[10px] uppercase tracking-wider mb-0.5">
-                Verified Healthcare Directory
-              </span>
-              <h2 id="hospital-directory-title" className="text-xl sm:text-2xl font-bold tracking-tight">
-                Nigeria Hospital Directory
-              </h2>
-              <p className="text-emerald-200/80 text-xs mt-0.5">
-                Locate General Hospitals, FMCs, and Teaching Hospitals across Nigeria
-              </p>
-            </div>
+        <div className="modal-head">
+          <span className="ico" aria-hidden="true">
+            <Building2 className="w-5 h-5" strokeWidth={2} />
+          </span>
+          <div>
+            <h2 id="hospital-directory-title">Nigeria hospital directory</h2>
+            <p className="sub">General hospitals, FMCs and teaching hospitals by state.</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-emerald-200 hover:text-white hover:bg-emerald-800 transition-colors"
-            aria-label="Close directory"
-          >
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="modal-close" aria-label="Close directory">
+            <X className="w-4 h-4" strokeWidth={2.2} />
           </button>
         </div>
 
