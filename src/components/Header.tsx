@@ -1,14 +1,18 @@
 import React from 'react';
-import { 
-  HeartPulse, 
-  AlertTriangle, 
-  Building2, 
-  BookOpen, 
-  MapPin, 
-  PhoneCall, 
+import {
+  HeartPulse,
+  AlertTriangle,
+  Building2,
+  BookOpen,
+  MapPin,
   Globe,
   Share2,
-  Check
+  Check,
+  Sun,
+  Moon,
+  Menu,
+  X,
+  ChevronDown,
 } from 'lucide-react';
 import { NIGERIAN_STATES_DATA } from '../data/nigeriaHealthcareData';
 import { TRANSLATIONS } from '../data/localization';
@@ -24,6 +28,14 @@ interface HeaderProps {
   onOpenFirstAid: () => void;
 }
 
+const Tick: React.FC = () => (
+  <span className="tick">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  </span>
+);
+
 export const Header: React.FC<HeaderProps> = ({
   selectedState,
   onSelectState,
@@ -31,11 +43,51 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectLanguage,
   onOpenEmergency,
   onOpenHospitals,
-  onOpenFirstAid
+  onOpenFirstAid,
 }) => {
   const [copied, setCopied] = React.useState(false);
+  const [openMenu, setOpenMenu] = React.useState<'lang' | 'state' | null>(null);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [theme, setTheme] = React.useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light';
+    try {
+      const saved = window.localStorage.getItem('nh-theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch {
+      /* ignore */
+    }
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
   const states = Object.keys(NIGERIAN_STATES_DATA);
   const t = TRANSLATIONS[selectedLanguage]?.header || TRANSLATIONS.pidgin.header;
+  const currentLang =
+    SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage) || SUPPORTED_LANGUAGES[0];
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      window.localStorage.setItem('nh-theme', theme);
+    } catch {
+      /* ignore */
+    }
+  }, [theme]);
+
+  React.useEffect(() => {
+    const close = () => setOpenMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpenMenu(null);
+        setMobileOpen(false);
+      }
+    };
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', close);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, []);
 
   const handleCopyAppUrl = () => {
     const url = window.location.href.split('?')[0];
@@ -45,126 +97,267 @@ export const Header: React.FC<HeaderProps> = ({
     });
   };
 
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-      {/* Subtle National Accent Line: Green-White-Green */}
-      <div className="h-1 w-full flex">
-        <div className="w-1/3 h-full bg-[#008751]" />
-        <div className="w-1/3 h-full bg-white" />
-        <div className="w-1/3 h-full bg-[#008751]" />
-      </div>
+    <header className="site-header">
+      <div className="hdr">
+        <a className="brand" href="#main" aria-label="NaijaHealth AI home">
+          <span className="brand-mark" aria-hidden="true">
+            <HeartPulse className="w-5 h-5" strokeWidth={2.1} />
+          </span>
+          <span className="brand-name">
+            <b>NaijaHealth</b>
+            <span>AI Triage</span>
+          </span>
+        </a>
 
-      {/* Main Bar */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        {/* Brand identity */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-[#008751] text-white shadow-xs">
-            <HeartPulse className="w-5 h-5 text-emerald-100" />
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-white border-2 border-[#008751] flex items-center justify-center">
-              <span className="w-1 h-1 rounded-full bg-[#008751]" />
-            </span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold tracking-tight text-stone-900 font-display">
-                NaijaHealth <span className="text-[#008751]">AI</span>
-              </span>
-              <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-[#008751] text-[10px] font-bold border border-emerald-200/80 tracking-wide uppercase">
-                {t.badge}
-              </span>
-            </div>
-            <p className="text-[11px] text-stone-500 font-medium hidden sm:block">
-              {t.subtitle}
-            </p>
-          </div>
-        </div>
+        <span className="hdr-sep" aria-hidden="true" />
+        <span className="badge-gov">
+          <i aria-hidden="true" />
+          {t.badge}
+        </span>
 
-        {/* Global Controls & Emergency CTA */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Language Selector */}
-          <div className="relative flex items-center bg-emerald-50/70 hover:bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 py-1.5 text-xs text-stone-800 transition-colors shadow-2xs">
-            <Globe className="w-3.5 h-3.5 text-[#008751] mr-1.5 shrink-0" />
-            <select
-              aria-label="Select Language"
-              value={selectedLanguage}
-              onChange={(e) => onSelectLanguage(e.target.value as SupportedLanguage)}
-              className="bg-transparent font-semibold text-[#05472A] focus:outline-none cursor-pointer pr-1"
+        <nav className="nav" aria-label="Primary">
+          <button type="button" onClick={onOpenHospitals}>
+            {t.hospitals}
+          </button>
+          <button type="button" onClick={onOpenFirstAid}>
+            {t.firstAid}
+          </button>
+          <button type="button" onClick={handleCopyAppUrl}>
+            {copied ? t.linkCopied : t.shareApp}
+          </button>
+        </nav>
+
+        <div className="hdr-right">
+          {/* Language */}
+          <div
+            className="select"
+            data-open={openMenu === 'lang' ? 'true' : 'false'}
+            onClick={stop}
+          >
+            <button
+              type="button"
+              className="select-btn"
+              aria-haspopup="listbox"
+              aria-expanded={openMenu === 'lang'}
+              aria-label={`Language: ${currentLang.name}`}
+              onClick={() => setOpenMenu(openMenu === 'lang' ? null : 'lang')}
             >
+              <Globe className="w-4 h-4" strokeWidth={2} style={{ opacity: 0.65 }} />
+              <span className="select-value">{currentLang.name}</span>
+              <ChevronDown className="chev" width={14} height={14} strokeWidth={2.4} />
+            </button>
+            <div className="select-menu" role="listbox" aria-label="Choose language">
+              <div className="menu-label">Choose language</div>
               {SUPPORTED_LANGUAGES.map((lang) => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.flag} {lang.name}
-                </option>
+                <button
+                  key={lang.code}
+                  type="button"
+                  role="option"
+                  aria-selected={lang.code === selectedLanguage}
+                  onClick={() => {
+                    onSelectLanguage(lang.code);
+                    setOpenMenu(null);
+                  }}
+                >
+                  <span aria-hidden="true">{lang.flag}</span>
+                  {lang.name}
+                  {lang.code === selectedLanguage && <Tick />}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
-          {/* State / Location Selector */}
-          <div className="relative flex items-center bg-stone-50 hover:bg-stone-100 border border-stone-200/80 rounded-xl px-2.5 py-1.5 text-xs text-stone-800 transition-colors shadow-2xs">
-            <MapPin className="w-3.5 h-3.5 text-[#008751] mr-1.5 shrink-0" />
-            <select
-              aria-label="Select your state in Nigeria"
-              value={selectedState}
-              onChange={(e) => onSelectState(e.target.value)}
-              className="bg-transparent font-medium text-stone-800 focus:outline-none cursor-pointer max-w-[95px] sm:max-w-none truncate pr-1"
+          {/* State */}
+          <div
+            className="select"
+            data-open={openMenu === 'state' ? 'true' : 'false'}
+            onClick={stop}
+          >
+            <button
+              type="button"
+              className="select-btn"
+              aria-haspopup="listbox"
+              aria-expanded={openMenu === 'state'}
+              aria-label={`State: ${selectedState}`}
+              onClick={() => setOpenMenu(openMenu === 'state' ? null : 'state')}
             >
+              <MapPin className="w-4 h-4" strokeWidth={2} style={{ opacity: 0.65 }} />
+              <span className="select-value">
+                {selectedState} {t.stateSuffix}
+              </span>
+              <ChevronDown className="chev" width={14} height={14} strokeWidth={2.4} />
+            </button>
+            <div className="select-menu" role="listbox" aria-label="Choose state">
+              <div className="menu-label">All 36 states + FCT</div>
               {states.map((st) => (
-                <option key={st} value={st}>
+                <button
+                  key={st}
+                  type="button"
+                  role="option"
+                  aria-selected={st === selectedState}
+                  onClick={() => {
+                    onSelectState(st);
+                    setOpenMenu(null);
+                  }}
+                >
                   {st} {t.stateSuffix}
-                </option>
+                  {st === selectedState && <Tick />}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
-          {/* Hospitals Directory */}
           <button
-            onClick={onOpenHospitals}
-            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:text-[#008751] hover:border-emerald-300 hover:bg-emerald-50/40 text-xs font-semibold transition-all"
-            title={t.hospitals}
+            type="button"
+            className="icon-btn"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title="Toggle theme"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           >
-            <Building2 className="w-3.5 h-3.5 text-[#008751]" />
-            <span>{t.hospitals}</span>
-          </button>
-
-          {/* First-Aid Quick Guides */}
-          <button
-            onClick={onOpenFirstAid}
-            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:text-[#008751] hover:border-emerald-300 hover:bg-emerald-50/40 text-xs font-semibold transition-all"
-            title={t.firstAid}
-          >
-            <BookOpen className="w-3.5 h-3.5 text-[#008751]" />
-            <span>{t.firstAid}</span>
-          </button>
-
-          {/* Share App Link Button */}
-          <button
-            onClick={handleCopyAppUrl}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-stone-200/90 hover:border-emerald-300 hover:bg-emerald-50/50 text-stone-700 text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer"
-            title="Copy your app URL to share with others"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-700 font-bold">{t.linkCopied}</span>
-              </>
+            {theme === 'dark' ? (
+              <Moon className="w-4 h-4" strokeWidth={2} />
             ) : (
-              <>
-                <Share2 className="w-3.5 h-3.5 text-[#008751]" />
-                <span className="hidden sm:inline">{t.shareApp}</span>
-                <span className="sm:hidden">{t.shareShort}</span>
-              </>
+              <Sun className="w-4 h-4" strokeWidth={2} />
             )}
           </button>
 
-          {/* Red-Flag Emergency Button */}
+          <a className="btn-emg" href="tel:112" title={t.emergencyBtn}>
+            <AlertTriangle className="w-4 h-4" strokeWidth={2.2} />
+            <span className="emg-label">{t.emergencyBtn}</span>
+          </a>
+
           <button
-            onClick={onOpenEmergency}
-            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all active:scale-95"
-            title={t.emergencyBtn}
+            type="button"
+            className="icon-btn menu-toggle"
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen(!mobileOpen)}
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-white" />
-            <span className="hidden sm:inline">{t.emergencyBtn}</span>
-            <span className="sm:hidden">112</span>
+            {mobileOpen ? (
+              <X className="w-4 h-4" strokeWidth={2.2} />
+            ) : (
+              <Menu className="w-4 h-4" strokeWidth={2.2} />
+            )}
           </button>
+        </div>
+      </div>
+
+      <div className="mobile-panel" data-open={mobileOpen ? 'true' : 'false'}>
+        <button
+          type="button"
+          onClick={() => {
+            onOpenHospitals();
+            setMobileOpen(false);
+          }}
+        >
+          <Building2 className="w-4 h-4 inline mr-2" strokeWidth={2} />
+          {t.hospitals}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onOpenFirstAid();
+            setMobileOpen(false);
+          }}
+        >
+          <BookOpen className="w-4 h-4 inline mr-2" strokeWidth={2} />
+          {t.firstAid}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onOpenEmergency();
+            setMobileOpen(false);
+          }}
+        >
+          <AlertTriangle className="w-4 h-4 inline mr-2" strokeWidth={2} />
+          {t.emergencyBtn}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            handleCopyAppUrl();
+            setMobileOpen(false);
+          }}
+        >
+          <Share2 className="w-4 h-4 inline mr-2" strokeWidth={2} />
+          {copied ? t.linkCopied : t.shareApp}
+        </button>
+
+        <div className="row">
+          <div
+            className="select"
+            data-open={openMenu === 'lang' ? 'true' : 'false'}
+            style={{ flex: 1 }}
+            onClick={stop}
+          >
+            <button
+              type="button"
+              className="select-btn"
+              aria-expanded={openMenu === 'lang'}
+              onClick={() => setOpenMenu(openMenu === 'lang' ? null : 'lang')}
+            >
+              <span className="select-value">{currentLang.name}</span>
+              <span style={{ marginLeft: 'auto', opacity: 0.55 }}>Language</span>
+            </button>
+            <div className="select-menu" role="listbox">
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  role="option"
+                  aria-selected={lang.code === selectedLanguage}
+                  onClick={() => {
+                    onSelectLanguage(lang.code);
+                    setOpenMenu(null);
+                  }}
+                >
+                  <span aria-hidden="true">{lang.flag}</span>
+                  {lang.name}
+                  {lang.code === selectedLanguage && <Tick />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="select"
+            data-open={openMenu === 'state' ? 'true' : 'false'}
+            style={{ flex: 1 }}
+            onClick={stop}
+          >
+            <button
+              type="button"
+              className="select-btn"
+              aria-expanded={openMenu === 'state'}
+              onClick={() => setOpenMenu(openMenu === 'state' ? null : 'state')}
+            >
+              <span className="select-value">
+                {selectedState} {t.stateSuffix}
+              </span>
+              <span style={{ marginLeft: 'auto', opacity: 0.55 }}>State</span>
+            </button>
+            <div className="select-menu" role="listbox">
+              {states.map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  role="option"
+                  aria-selected={st === selectedState}
+                  onClick={() => {
+                    onSelectState(st);
+                    setOpenMenu(null);
+                  }}
+                >
+                  {st} {t.stateSuffix}
+                  {st === selectedState && <Tick />}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </header>
