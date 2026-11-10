@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   X, 
@@ -9,6 +9,8 @@ import {
   Filter 
 } from 'lucide-react';
 import { NIGERIAN_STATES_DATA } from '../data/nigeriaHealthcareData';
+import { ResilientImage } from './ResilientImage';
+import { VISUAL_ASSETS } from '../data/visualAssets';
 
 interface HospitalDirectoryModalProps {
   isOpen: boolean;
@@ -24,6 +26,12 @@ export const HospitalDirectoryModal: React.FC<HospitalDirectoryModalProps> = ({
   const [selectedState, setSelectedState] = useState(defaultState);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'Teaching' | 'FMC' | 'General'>('ALL');
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedState(defaultState);
+    }
+  }, [isOpen, defaultState]);
 
   if (!isOpen) return null;
 
@@ -82,6 +90,24 @@ export const HospitalDirectoryModal: React.FC<HospitalDirectoryModalProps> = ({
 
         {/* Filter controls */}
         <div className="p-4 bg-stone-50 border-b border-stone-200 space-y-3">
+          {/* Compact Hospital Visual Overview */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 p-2.5 rounded-2xl bg-white border border-stone-200/80">
+            <ResilientImage
+              src={VISUAL_ASSETS.hospital.src}
+              alt={`${selectedState} Verified Nigerian Healthcare Facilities`}
+              variant="hospital"
+              className="w-full sm:w-40 aspect-video rounded-xl shrink-0 border border-stone-200/70"
+            />
+            <div className="flex-1 text-left">
+              <div className="text-xs sm:text-sm font-bold text-stone-900">
+                {selectedState} State Referral Network ({currentStateData.facilities.length} listed hubs)
+              </div>
+              <p className="text-[11px] sm:text-xs text-stone-600 mt-0.5 leading-relaxed">
+                Search verified Federal Medical Centres, Teaching Hospitals, and General Hospitals with direct map directions.
+              </p>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-2.5">
             {/* State Picker */}
             <div className="sm:w-1/3 relative">

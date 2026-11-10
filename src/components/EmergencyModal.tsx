@@ -9,7 +9,9 @@ import {
   Clock, 
   Ambulance 
 } from 'lucide-react';
-import { RED_FLAG_SYMPTOMS, NATIONAL_EMERGENCY_NUMBERS, NIGERIAN_STATES_DATA } from '../data/nigeriaHealthcareData';
+import { RED_FLAG_SYMPTOMS, NIGERIAN_STATES_DATA } from '../data/nigeriaHealthcareData';
+import { ResilientImage } from './ResilientImage';
+import { VISUAL_ASSETS } from '../data/visualAssets';
 
 interface EmergencyModalProps {
   isOpen: boolean;
@@ -65,6 +67,25 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 
         {/* Content body */}
         <div className="p-6 overflow-y-auto space-y-6">
+          {/* Emergency Arrival Illustration with High-Contrast Gradient Scrim */}
+          <div className="relative rounded-2xl overflow-hidden border border-stone-200 shadow-xs aspect-video max-h-48 w-full">
+            <ResilientImage
+              src={VISUAL_ASSETS.hospital.src}
+              alt="Nigerian Emergency Hospital & Ambulance Arrival"
+              variant="hospital"
+              className="w-full h-full"
+              imgClassName="w-full h-full object-cover object-[50%_60%]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-4 text-white">
+              <span className="text-[11px] font-bold tracking-wider uppercase text-emerald-300">
+                {selectedState} State Emergency Dispatch
+              </span>
+              <p className="text-sm sm:text-base font-bold leading-snug">
+                Head directly to your nearest Emergency Department — Dial 112 free on any network
+              </p>
+            </div>
+          </div>
+
           {/* Direct Hotline Strip */}
           <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2.5 text-red-900 font-bold text-sm">

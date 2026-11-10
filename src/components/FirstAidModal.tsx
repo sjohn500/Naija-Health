@@ -1,45 +1,69 @@
-import React, { useState } from 'react';
-import { 
-  BookOpen, 
-  X, 
-  Droplet, 
-  Thermometer, 
-  Heart, 
-  Bandage, 
-  Check, 
-  Info, 
-  ShieldCheck 
+import React, { useState, useEffect } from 'react';
+import {
+  BookOpen,
+  X,
+  Droplet,
+  Thermometer,
+  Heart,
+  Bandage,
+  Info,
+  ShieldCheck,
+  Baby,
 } from 'lucide-react';
 import { FIRST_AID_GUIDES } from '../data/nigeriaHealthcareData';
+import { SupportedLanguage } from '../types/triage';
+import { TRANSLATIONS } from '../data/localization';
+import { ResilientImage } from './ResilientImage';
+import { getFirstAidVisual } from '../data/visualAssets';
 
 interface FirstAidModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialGuideId?: string;
+  selectedLanguage?: SupportedLanguage;
 }
 
 export const FirstAidModal: React.FC<FirstAidModalProps> = ({
   isOpen,
-  onClose
+  onClose,
+  initialGuideId,
+  selectedLanguage = 'pidgin',
 }) => {
-  const [activeGuideId, setActiveGuideId] = useState<string>(FIRST_AID_GUIDES[0].id);
+  const [activeGuideId, setActiveGuideId] = useState<string>(initialGuideId || FIRST_AID_GUIDES[0].id);
+
+  useEffect(() => {
+    if (isOpen && initialGuideId) {
+      setActiveGuideId(initialGuideId);
+    }
+  }, [isOpen, initialGuideId]);
 
   if (!isOpen) return null;
 
-  const currentGuide = FIRST_AID_GUIDES.find(g => g.id === activeGuideId) || FIRST_AID_GUIDES[0];
+  const currentGuide = FIRST_AID_GUIDES.find((g) => g.id === activeGuideId) || FIRST_AID_GUIDES[0];
+  const currentVisual = getFirstAidVisual(currentGuide.id);
+  const langStrings = TRANSLATIONS[selectedLanguage] || TRANSLATIONS.pidgin;
+  const localizedCaption = langStrings.visuals.cards[currentVisual.key];
 
   const getGuideIcon = (id: string) => {
     switch (id) {
-      case 'ors': return <Droplet className="w-4 h-4 text-cyan-600" />;
-      case 'tepid-sponging': return <Thermometer className="w-4 h-4 text-amber-600" />;
-      case 'choking': return <Heart className="w-4 h-4 text-red-600" />;
-      case 'bleeding': return <Bandage className="w-4 h-4 text-rose-600" />;
-      default: return <ShieldCheck className="w-4 h-4 text-emerald-600" />;
+      case 'ors':
+        return <Droplet className="w-4 h-4 text-cyan-600" />;
+      case 'tepid-sponging':
+        return <Thermometer className="w-4 h-4 text-amber-600" />;
+      case 'choking':
+        return <Heart className="w-4 h-4 text-red-600" />;
+      case 'bleeding':
+        return <Bandage className="w-4 h-4 text-rose-600" />;
+      case 'pregnancy':
+        return <Baby className="w-4 h-4 text-pink-600" />;
+      default:
+        return <ShieldCheck className="w-4 h-4 text-emerald-600" />;
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div 
+      <div
         className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden max-h-[92vh] flex flex-col"
         role="dialog"
         aria-modal="true"
@@ -65,7 +89,7 @@ export const FirstAidModal: React.FC<FirstAidModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-teal-200 hover:text-white hover:bg-teal-800 transition-colors"
+            className="p-2 rounded-xl text-teal-200 hover:text-white hover:bg-teal-800 transition-colors cursor-pointer"
             aria-label="Close guides"
           >
             <X className="w-5 h-5" />
@@ -78,7 +102,7 @@ export const FirstAidModal: React.FC<FirstAidModalProps> = ({
             <button
               key={guide.id}
               onClick={() => setActiveGuideId(guide.id)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap shrink-0 ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                 activeGuideId === guide.id
                   ? 'bg-white text-stone-900 shadow-xs border border-stone-300'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-white/60'
@@ -91,14 +115,27 @@ export const FirstAidModal: React.FC<FirstAidModalProps> = ({
         </div>
 
         {/* Active Guide Content */}
-        <div className="p-6 overflow-y-auto space-y-5">
-          <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-950">
-            <h3 className="font-extrabold text-base text-teal-900 mb-1">
-              {currentGuide.title}
-            </h3>
-            <p className="text-xs text-teal-800 leading-relaxed">
-              {currentGuide.summary}
-            </p>
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-5">
+          {/* Illustrated Protocol Card Split */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
+            <ResilientImage
+              src={currentVisual.src}
+              alt={currentGuide.title}
+              variant={currentVisual.key}
+              className={`md:col-span-5 w-full rounded-2xl border border-stone-200 shadow-2xs ${currentVisual.aspectClass}`}
+              imgClassName="w-full h-full object-cover object-[50%_20%]"
+            />
+            <div className="md:col-span-7 p-4 sm:p-5 rounded-2xl bg-teal-50/80 border border-teal-200/90 text-teal-950 flex flex-col justify-center">
+              <h3 className="font-extrabold text-base sm:text-lg text-teal-950 mb-1.5">
+                {currentGuide.title}
+              </h3>
+              <p className="text-xs sm:text-sm text-teal-900/90 leading-relaxed mb-3">
+                {currentGuide.summary}
+              </p>
+              <div className="pt-2.5 border-t border-teal-200/70 text-xs font-semibold text-[#008751]">
+                {localizedCaption.caption}
+              </div>
+            </div>
           </div>
 
           {/* Specific visual highlights for ORS */}
@@ -106,17 +143,17 @@ export const FirstAidModal: React.FC<FirstAidModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-center">
                 <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider block mb-1">1. Water</span>
-                <span className="text-lg font-black text-blue-950">1 Litre</span>
+                <span className="text-lg font-black text-blue-950 tabular-nums">1 Litre</span>
                 <span className="text-[11px] text-blue-800 block mt-0.5">Clean boiled & cooled water (or 2 pure-water sachets)</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-center">
                 <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block mb-1">2. Salt</span>
-                <span className="text-lg font-black text-amber-950">1 Level Tsp</span>
+                <span className="text-lg font-black text-amber-950 tabular-nums">1 Level Tsp</span>
                 <span className="text-[11px] text-amber-800 block mt-0.5">Level small teaspoon (about 3 grams). Never excess salt.</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center">
                 <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block mb-1">3. Sugar</span>
-                <span className="text-lg font-black text-emerald-950">10 Level Tsps</span>
+                <span className="text-lg font-black text-emerald-950 tabular-nums">10 Level Tsps</span>
                 <span className="text-[11px] text-emerald-800 block mt-0.5">Or 5 sugar cubes. Provides glucose for intestinal absorption.</span>
               </div>
             </div>

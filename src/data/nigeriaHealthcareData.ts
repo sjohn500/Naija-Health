@@ -38,6 +38,11 @@ export const RED_FLAG_SYMPTOMS = [
     title: 'Severe Dehydration with Purging & Vomiting',
     description: 'Sunken eyes, no urine for hours, extreme thirst, wrinkly skin tenting (Cholera alert).',
     action: 'Emergency dehydration. Give ORS immediately while transporting to health facility.'
+  },
+  {
+    title: 'Pregnancy Danger Signs (Bleeding, Severe Headache, Blurred Vision)',
+    description: 'Vaginal bleeding, water breaking early, face/hand swelling with headache/blurry vision, convulsions, or baby stopped moving.',
+    action: 'Obstetric emergency. Do NOT take herbs or home painkillers — go straight to Maternity Emergency Ward.'
   }
 ];
 
@@ -559,6 +564,18 @@ export const FIRST_AID_GUIDES = [
       'If possible and no bone fracture is suspected, elevate the bleeding limb above heart level.',
       'Have the patient lie down quietly to maintain blood flow to vital organs.',
       'Transport immediately to the nearest General Hospital or Emergency Trauma Centre.'
+    ]
+  },
+  {
+    id: 'pregnancy',
+    title: 'Pregnancy & Antenatal Safety Guide',
+    summary: 'Protecting mother and baby: safe relief during pregnancy and obstetric danger signs that require urgent hospital care.',
+    steps: [
+      'NEVER self-medicate during pregnancy: avoid unprescribed painkillers (especially Ibuprofen, Diclofenac, Aspirin), random chemist drugs, or herbal mixes ("agbo") unless approved by your antenatal doctor.',
+      'For morning sickness or mild nausea: eat small dry meals early, sip clean water or ginger tea slowly, and rest in fresh air.',
+      'Sleep under an insecticide-treated mosquito net every night and keep every Antenatal Clinic (ANC) appointment for blood pressure, iron/folic acid, and malaria prevention checks.',
+      'If you notice mild fever: sponge gently with lukewarm water and visit your antenatal clinic promptly for a safe Malaria test.',
+      'RUSH TO THE MATERNITY HOSPITAL IMMEDIATELY if pregnancy is accompanied by: ANY vaginal bleeding, severe headache or blurry vision, sudden face/hand swelling, sharp abdominal pain, water breaking early, high fever, or decreased baby kicks.'
     ]
   }
 ];

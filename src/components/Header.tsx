@@ -11,6 +11,7 @@ import {
   Check
 } from 'lucide-react';
 import { NIGERIAN_STATES_DATA } from '../data/nigeriaHealthcareData';
+import { TRANSLATIONS } from '../data/localization';
 import { SupportedLanguage, SUPPORTED_LANGUAGES } from '../types/triage';
 
 interface HeaderProps {
@@ -34,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [copied, setCopied] = React.useState(false);
   const states = Object.keys(NIGERIAN_STATES_DATA);
+  const t = TRANSLATIONS[selectedLanguage]?.header || TRANSLATIONS.pidgin.header;
 
   const handleCopyAppUrl = () => {
     const url = window.location.href.split('?')[0];
@@ -68,11 +70,11 @@ export const Header: React.FC<HeaderProps> = ({
                 NaijaHealth <span className="text-[#008751]">AI</span>
               </span>
               <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-[#008751] text-[10px] font-bold border border-emerald-200/80 tracking-wide uppercase">
-                Federal Health Triage
+                {t.badge}
               </span>
             </div>
             <p className="text-[11px] text-stone-500 font-medium hidden sm:block">
-              Empathetic Medical Navigation • Nigeria
+              {t.subtitle}
             </p>
           </div>
         </div>
@@ -80,13 +82,13 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Global Controls & Emergency CTA */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Language Selector */}
-          <div className="relative flex items-center bg-stone-50 hover:bg-stone-100 border border-stone-200/80 rounded-xl px-2.5 py-1.5 text-xs text-stone-800 transition-colors shadow-2xs">
+          <div className="relative flex items-center bg-emerald-50/70 hover:bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 py-1.5 text-xs text-stone-800 transition-colors shadow-2xs">
             <Globe className="w-3.5 h-3.5 text-[#008751] mr-1.5 shrink-0" />
             <select
               aria-label="Select Language"
               value={selectedLanguage}
               onChange={(e) => onSelectLanguage(e.target.value as SupportedLanguage)}
-              className="bg-transparent font-medium text-stone-800 focus:outline-none cursor-pointer pr-1"
+              className="bg-transparent font-semibold text-[#05472A] focus:outline-none cursor-pointer pr-1"
             >
               {SUPPORTED_LANGUAGES.map((lang) => (
                 <option key={lang.code} value={lang.code}>
@@ -107,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               {states.map((st) => (
                 <option key={st} value={st}>
-                  {st} State
+                  {st} {t.stateSuffix}
                 </option>
               ))}
             </select>
@@ -117,20 +119,20 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenHospitals}
             className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:text-[#008751] hover:border-emerald-300 hover:bg-emerald-50/40 text-xs font-semibold transition-all"
-            title="Browse verified Nigerian General and Teaching Hospitals"
+            title={t.hospitals}
           >
             <Building2 className="w-3.5 h-3.5 text-[#008751]" />
-            <span>Hospitals</span>
+            <span>{t.hospitals}</span>
           </button>
 
           {/* First-Aid Quick Guides */}
           <button
             onClick={onOpenFirstAid}
             className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:text-[#008751] hover:border-emerald-300 hover:bg-emerald-50/40 text-xs font-semibold transition-all"
-            title="Safe First Aid Protocols (ORS, Tepid Sponging)"
+            title={t.firstAid}
           >
             <BookOpen className="w-3.5 h-3.5 text-[#008751]" />
-            <span>First Aid</span>
+            <span>{t.firstAid}</span>
           </button>
 
           {/* Share App Link Button */}
@@ -142,13 +144,13 @@ export const Header: React.FC<HeaderProps> = ({
             {copied ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-700 font-bold">Link Copied!</span>
+                <span className="text-emerald-700 font-bold">{t.linkCopied}</span>
               </>
             ) : (
               <>
                 <Share2 className="w-3.5 h-3.5 text-[#008751]" />
-                <span className="hidden sm:inline">Share App</span>
-                <span className="sm:hidden">Share</span>
+                <span className="hidden sm:inline">{t.shareApp}</span>
+                <span className="sm:hidden">{t.shareShort}</span>
               </>
             )}
           </button>
@@ -157,10 +159,10 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenEmergency}
             className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all active:scale-95"
-            title="Emergency Red-Flag Danger Signs and 112 Hotline"
+            title={t.emergencyBtn}
           >
             <AlertTriangle className="w-3.5 h-3.5 text-white" />
-            <span className="hidden sm:inline">Emergency (112)</span>
+            <span className="hidden sm:inline">{t.emergencyBtn}</span>
             <span className="sm:hidden">112</span>
           </button>
         </div>

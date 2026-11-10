@@ -2,8 +2,15 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { NIGERIAN_STATES_DATA, RED_FLAG_SYMPTOMS, NATIONAL_EMERGENCY_NUMBERS } from './src/data/nigeriaHealthcareData';
+import {
+  buildFallbackTriage,
+  buildFormattedResponse,
+  detectLocalRedFlags,
+  detectStateFromText,
+  getSectionHeaders,
+} from './src/data/fallbackTriage';
 import { SupportedLanguage } from './src/types/triage';
 
 dotenv.config();
@@ -14,14 +21,16 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '8mb' }));
 
-// Initialize Google GenAI client (User-Agent header required by skill)
+// Initialize Google GenAI client (v1beta supports ThinkingLevel, speechConfig, and full model catalog)
 let ai: GoogleGenAI | null = null;
 if (process.env.GEMINI_API_KEY) {
   ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
+    apiVersion: 'v1beta',
     httpOptions: {
+      apiVersion: 'v1beta',
       headers: {
         'User-Agent': 'aistudio-build',
       },
@@ -29,393 +38,279 @@ if (process.env.GEMINI_API_KEY) {
   });
 }
 
-// Emergency red flag terms checker for safety verification
-function detectLocalRedFlags(text: string): { isRedFlag: boolean; matchedSymptom?: string } {
+function getTargetLanguage(lang: unknown): SupportedLanguage {
+  if (typeof lang === 'string' && ['pidgin', 'english', 'hausa', 'yoruba', 'igbo'].includes(lang)) {
+    return lang as SupportedLanguage;
+  }
+  return 'pidgin';
+}
+
+function detectExplicitNigerianLanguage(text: string): SupportedLanguage | null {
   const lower = text.toLowerCase();
-  const redFlagPatterns = [
-    { pattern: /(sharp|crushing|severe|tight|pressure|heavy).*(chest|heart)/i, name: 'Heavy Chest Pain / Heart Trouble' },
-    { pattern: /(chest pain|pain in my chest|chest dey pain|chest dey tight|chest dey press|ciwon kirji|aya kirji|inu riro)/i, name: 'Heavy Chest Pain' },
-    { pattern: /(cannot breathe|severe difficulty breathing|shortness of breath|gasping for air|struggling to breathe|blue lips|breath seize|breath hang|breath dey seize|suffocat|kasa numfashi|kasa hema|kukuru eemi)/i, name: 'Severe Breath Seize / Inability to Breathe' },
-    { pattern: /(face droop|half body|one side.*(weak|paralyz)|slurred speech|sudden numbness|hand and leg no fit move|shanyewar jiki|apa kan ro)/i, name: 'Sudden Half-Body Weakness / Stroke Signs' },
-    { pattern: /(heavy bleeding|uncontrolled bleeding|bleeding continuously|spurting blood|coughing.*blood|vomiting.*blood|heavy blood|blood dey rush|zubar jini|eje pupo)/i, name: 'Heavy Blood dey Rush / Uncontrolled Bleeding' },
-    { pattern: /(convuls|seizure|fit|passed out|unconscious|fainted and not waking|coma|person faint|eye turn collapse|farfadiya|dandana|daku)/i, name: 'Loss of Consciousness / Person Faint' },
-    { pattern: /(stiff neck.*fever|cannot bend neck|high fever.*hallucinat|neck strong.*hot body|tashin hankali)/i, name: 'Meningitis / Brain Infection Danger' }
-  ];
 
-  for (const item of redFlagPatterns) {
-    if (item.pattern.test(lower)) {
-      return { isRedFlag: true, matchedSymptom: item.name };
-    }
+  // Strong Hausa lexical markers
+  const hausaMatches = (
+    lower.match(
+      /\b(ina|kina|sannu|zazzabi|zazzaɓi|ciwon|ciwo|jikina|jiki|amai|zawo|numfashi|ciki|juna biyu|mai ciki|gaggawa|asibiti|kano|kaduna|sokoto|katsina|da safe|tun jiya|ruwa|gajiya)\b/g
+    ) || []
+  ).length;
+  // Strong Yoruba lexical markers
+  const yorubaMatches = (
+    lower.match(
+      /\b(ara mi|ori mi|orí|ori|gbona|gbóná|iba|ìbà|eebi|èébì|igbe|ìgbẹ́|gbuuru|oyun|oyún|aboyun|aboyún|eje|ẹ̀jẹ̀|inu rirun|irora|ìrora|ile-iwosan|ilé-ìwòsàn|omo|ọmọ|fo mi|n fo|n dun|da mi|laamu)\b/g
+    ) || []
+  ).length;
+  // Strong Igbo lexical markers
+  const igboMatches = (
+    lower.match(
+      /\b(ahu|ahụ|isi|owuwa|ọwụwa|afo|afọ|osisa|ọsịsa|ime|obara|ọbara|ukwara|ụkwara|oku|ọkụ|ekpo|agwo|gwọ|nnoo|ndo|ulo ogwu|ụlọ ọgwụ|nwa|ike|mgbu|na-egbu|na-ekpo|na-awa|nututu|nụtụtụ|adi m|adị m)\b/g
+    ) || []
+  ).length;
+
+  const maxIndigenous = Math.max(hausaMatches, yorubaMatches, igboMatches);
+  if (maxIndigenous >= 2) {
+    if (hausaMatches === maxIndigenous) return 'hausa';
+    if (yorubaMatches === maxIndigenous) return 'yoruba';
+    return 'igbo';
   }
-  return { isRedFlag: false };
+
+  // Distinct Pidgin tokens vs standard English
+  const pidginMatches = (
+    lower.match(
+      /\b(dey|wetin|pikin|belle|abeg|wahala|sabi|chop|comot|waka|sharp-sharp|no fit|e don|my body|head dey|foot dey|eye dey|throat dey)\b/g
+    ) || []
+  ).length;
+  if (pidginMatches >= 2) return 'pidgin';
+
+  return null;
 }
 
-// Extract or match Nigerian state from text
-function detectStateFromText(text: string): string | undefined {
-  const lower = text.toLowerCase();
-  for (const stateName of Object.keys(NIGERIAN_STATES_DATA)) {
-    if (lower.includes(stateName.toLowerCase())) {
-      return stateName;
-    }
-    const stateInfo = NIGERIAN_STATES_DATA[stateName];
-    if (stateInfo.capital && lower.includes(stateInfo.capital.toLowerCase())) {
-      return stateName;
-    }
-    for (const fac of stateInfo.facilities) {
-      if (lower.includes(fac.city.toLowerCase())) {
-        return stateName;
-      }
-    }
+function resolveTargetLanguage(requestedLang: unknown, text: string, strictMode = false): SupportedLanguage {
+  const baseLang = getTargetLanguage(requestedLang);
+  if (strictMode) return baseLang;
+
+  const inferred = detectExplicitNigerianLanguage(text);
+  if (!inferred) return baseLang;
+
+  // Preserve explicit Hausa/Yoruba/Igbo selection if user mixed English medical words,
+  // but honor automatic detection if they clearly wrote in Hausa/Yoruba/Igbo while dropdown stayed on Pidgin/English.
+  if (baseLang === 'pidgin' || baseLang === 'english') {
+    return inferred;
   }
-  // Common aliases
-  if (lower.includes('abuja') || lower.includes('fct')) return 'FCT - Abuja';
-  if (lower.includes('lag') || lower.includes('ikeja') || lower.includes('yaba') || lower.includes('lekki') || lower.includes('surulere') || lower.includes('ikorodu')) return 'Lagos';
-  if (lower.includes('ph') || lower.includes('port harcourt') || lower.includes('pitakwa')) return 'Rivers';
-  if (lower.includes('ibadan')) return 'Oyo';
-  if (lower.includes('onitsha') || lower.includes('awka') || lower.includes('nnewi')) return 'Anambra';
-  if (lower.includes('benin') || lower.includes('irrua')) return 'Edo';
-  if (lower.includes('zaria') || lower.includes('kaduna')) return 'Kaduna';
-  if (lower.includes('warri') || lower.includes('asaba')) return 'Delta';
-  if (lower.includes('aba') || lower.includes('umuahia')) return 'Abia';
-  if (lower.includes('jos')) return 'Plateau';
-  if (lower.includes('kano')) return 'Kano';
-  return undefined;
+  if ((inferred === 'hausa' || inferred === 'yoruba' || inferred === 'igbo') && inferred !== baseLang) {
+    return inferred;
+  }
+  return baseLang;
 }
 
-// Fallback rule-based triage supporting multilingual Nigerian communities
-function buildFallbackTriage(message: string, stateName: string = 'Lagos', language: SupportedLanguage = 'pidgin'): any {
-  const redFlag = detectLocalRedFlags(message);
-  const stateData = NIGERIAN_STATES_DATA[stateName] || NIGERIAN_STATES_DATA['Lagos'];
-  const topFacilities = stateData.facilities.map(f => `${f.name} (${f.city})`).slice(0, 3);
-  
-  let disclaimer = '⚠️ Abeg remember: I be NaijaHealth AI assistant o, I no be real medical doctor. If body no do you well or the matter tight, go meet doctor for hospital or call 112 sharp-sharp.';
-  if (language === 'english') {
-    disclaimer = '⚠️ Medical Disclaimer: NaijaHealth AI is an informational triage support tool and does not provide formal medical diagnoses or prescriptions. In emergencies, visit the nearest hospital or call 112 immediately.';
-  } else if (language === 'hausa') {
-    disclaimer = '⚠️ Tunatarwa: Ni mataimakin AI ne (NaijaHealth AI), ba likita na gaskiya ba. Idan jiki yayi tsanani, tafi asibiti kusa da kai ko kira 112.';
-  } else if (language === 'yoruba') {
-    disclaimer = '⚠️ Ìkìlọ̀: Èmi jẹ́ olùrànlọ́wọ́ AI, mi kìí ṣe dọ́kítà gidi. Tí ara bá le koko, ẹ lọ sí ilé-ìwòsàn tàbí kí ẹ pe 112 lẹ́sẹ̀kẹsẹ̀.';
-  } else if (language === 'igbo') {
-    disclaimer = '⚠️ Rịba ama: Abụ m onye inyeaka AI, abụghị m ezigbo dọkịta. Ọ bụrụ na ahụ adịghị gị mma nke ukwuu, gaa ụlọ ọgwụ ma ọ bụ kpọọ 112 ugbu a.';
-  }
-
-  if (redFlag.isRedFlag) {
-    let actionPlan = `🚨 EMERGENCY O! Abeg drop everything, no waste one second for house! Rush sharp-sharp go the nearest General Hospital or Emergency Trauma Centre for ${stateName} State now now!\n` +
-      `Hospitals wey dey close to you:\n` +
-      topFacilities.map(f => `• ${f}`).join('\n') +
-      `\n\nCall 112 (National Toll-Free line) or ${stateData.emergencyHotlines.join(', ')} sharp-sharp! No drink any medicine or concoction for house, hospital be the only answer now!`;
-
-    if (language === 'english') {
-      actionPlan = `🚨 RED-FLAG EMERGENCY: Please bypass all home remedies and go IMMEDIATELY to the nearest General Hospital or Emergency Department in ${stateName}.\n` +
-        `Nearby health centres:\n` + topFacilities.map(f => `• ${f}`).join('\n') +
-        `\n\nCall 112 (National Emergency) or ${stateData.emergencyHotlines.join(', ')} immediately!`;
-    } else if (language === 'hausa') {
-      actionPlan = `🚨 GAGGAWA CE: Kada ka tsaya maganin gida! Yi maza-maza ka tafi Asibitin Gwamnati mafi kusa a jihar ${stateName} yanzu-yanzu!\n` +
-        `Asibitocin da ke kusa da kai:\n` + topFacilities.map(f => `• ${f}`).join('\n') +
-        `\n\nKira 112 (layin gaggawa na kasa) ba tare da bata lokaci ba!`;
-    } else if (language === 'yoruba') {
-      actionPlan = `🚨 PÀJÁWÌRÌ: Ẹ má ṣe oògùn ilé kankan! Ẹ yára sáré lọ sí Ilé-ìwòsàn Ìjọba tó súnmọ́ yín jùlọ ní Ìpínlẹ̀ ${stateName} lẹ́sẹ̀kẹsẹ̀!\n` +
-        `Àwọn Ilé-ìwòsàn tó wà nítòsí:\n` + topFacilities.map(f => `• ${f}`).join('\n') +
-        `\n\nẸ pe 112 lẹ́sẹ̀kẹsẹ̀!`;
-    } else if (language === 'igbo') {
-      actionPlan = `🚨 MBEREDE: Emela ọgwụ ụlọ ọ bụla! Gbaa ọsọ gaa na General Hospital kacha nso na steeti ${stateName} ugbu a!\n` +
-        `Ụlọ ọgwụ ndị dị gị nso:\n` + topFacilities.map(f => `• ${f}`).join('\n') +
-        `\n\nKpọọ 112 ozugbo!`;
-    }
-
-    return {
-      language,
-      urgencyLevel: 'emergency',
-      isRedFlag: true,
-      emergencyWarning: `🚨 DANGER DEY: Wetin you talk (${redFlag.matchedSymptom || 'this acute symptom'}) na dangerous red-flag emergency sign!`,
-      empathyNote: `Ayaah! Sorry o, stay calm and rush go hospital now now!`,
-      wetinFitDeyHappen: `This kind symptom fit mean say heart, breath, or serious blood condition dey happen wey doctor must check with machine immediately.`,
-      wetinYouFitDoForHouse: `NO DO ANY HOUSE TREATMENT! All home remedies cancel. Loosen tight cloth, sit down calmly, and let somebody carry you run go hospital now.`,
-      nextStep: actionPlan,
-      potentialCauses: `Severe acute emergency requiring urgent hospital evaluation.`,
-      homeManagement: `Bypassed for emergency. Rush to hospital.`,
-      actionPlan,
-      recommendedFacilities: topFacilities,
-      detectedLocation: stateName,
-      clarifyingQuestions: [],
-      fullFormattedResponse: `🚨 EMERGENCY ALERT!\n\n` +
-        `**[Wetin Fit Dey Happen]**\nAcute red-flag emergency requiring hospital resuscitation and monitoring.\n\n` +
-        `**[Wetin You Fit Do For House]**\nCANCELLED. Rush to emergency unit.\n\n` +
-        `**[Next Step]**\n${actionPlan}\n\n${disclaimer}`,
-      disclaimer
-    };
-  }
-
-  // Common condition heuristics
-  const lower = message.toLowerCase();
-  let wetinFitDeyHappen = '';
-  let wetinYouFitDoForHouse = '';
-  let nextStep = '';
-  let clarifyingQuestions: string[] = [];
-
-  if (lower.includes('fever') || lower.includes('hot body') || lower.includes('chills') || lower.includes('bitter') || lower.includes('zazzabi') || lower.includes('iba')) {
-    if (language === 'english') {
-      wetinFitDeyHappen = `High fever with body pain and bitter taste is commonly caused in Nigeria by Malaria (transmitted by female Anopheles mosquitoes) or Typhoid fever. It can also be viral flu.`;
-      wetinYouFitDoForHouse = `1. Tepid sponging with lukewarm water (never cold water or alcohol/spirit) to bring fever down.\n2. Drink plenty of clean boiled water or fresh juice.\n3. Sleep under an insecticide-treated mosquito net.\n4. Paracetamol can be taken according to package directions for relief.`;
-      nextStep = `Get a rapid malaria test (mRDT) or typhoid test at a nearby certified medical laboratory or clinic before taking antimalarials. Visit ${topFacilities[0]} if fever persists past 48 hours or vomiting occurs.`;
-      clarifyingQuestions = [
-        'How many days have you had this fever?',
-        'Are you experiencing any vomiting or tea-coloured urine?'
-      ];
-    } else if (language === 'hausa') {
-      wetinFitDeyHappen = `Sannu! Zazzabi mai zafi tare da ciwon jiki yawanci alamomin cutar zazzabin cizon sauro (Malaria) ne ko Typhoid daga ruwa ko abinci maras tsabta.`;
-      wetinYouFitDoForHouse = `1. Yi amfani da kyallen da aka jika a ruwa mara sanyi don goge goshi da jiki.\n2. Sha ruwa mai tsabta sosai.\n3. Kwana a cikin gidan sauro mai magani.`;
-      nextStep = `Je cibiyar lafiya mafi kusa don gwajin Malaria (mRDT) kafin shan magani. Idan zazzabi ya wuce kwanaki biyu, tafi ${topFacilities[0]} nan take.`;
-      clarifyingQuestions = ['Kwana nawa jiki ke zafi?', 'Akwai amai ko canjin launin fitsari?'];
-    } else if (language === 'yoruba') {
-      wetinFitDeyHappen = `Pẹlẹ o! Ìbà gbígbóná pẹ̀lú ara ríro sábà máa ń jẹ́ àmì Iba (Malaria) láti ara ẹ̀fọn tàbí Iba Tàífọ́ọ̀dù.`;
-      wetinYouFitDoForHouse = `1. Fi aṣọ tútù (omi lásán, kìí ṣe omi yìnyín) nu iwaju ati ara lati dinku igbona ara.\n2. Mu omi mimọ ti a bọ daradara.\n3. Sun labẹ àwọ̀n ẹ̀fọn.`;
-      nextStep = `Lọ ṣe àyẹ̀wò ẹ̀jẹ̀ fun iba (RDT) ni ile-iwosan to wa nitosi. Ti iba ba kọja ọjọ meji, lọ si ${topFacilities[0]} lẹsẹkẹsẹ.`;
-      clarifyingQuestions = ['Ọjọ́ mélòó ni ara ti ń gbóná?', 'Ṣé o ń bì tàbí tọ́ yí padà sí àwọ̀ tii?'];
-    } else {
-      wetinFitDeyHappen = `Pele o! This kind hot body, body pain, and mouth wey dey bitter na normal sign of Malaria (from female Anopheles mosquito bite) or Typhoid fever (from dirty water or food). E fit still be common flu.`;
-      wetinYouFitDoForHouse = `1. Use clean towel and ordinary lukewarm water (no use cold water or spirit) clean the forehead, armpit, and neck make hotness come down.\n2. Drink plenty clean boiled water or fresh orange juice.\n3. Sleep under insecticide-treated mosquito net.\n4. Paracetamol fit calm the body pain.`;
-      nextStep = `Waka go do Malaria RDT test for nearby clinic before you buy malaria medicine. If the fever pass 2 days, or you dey vomit everything, waka go ${topFacilities[0]} sharp-sharp.`;
-      clarifyingQuestions = [
-        'Pele, how many days the hot body and body pain don dey do you?',
-        'You dey vomit or your urine dey yellow/brown like tea?'
-      ];
-    }
-  } else if (lower.includes('purg') || lower.includes('stool') || lower.includes('watery') || lower.includes('belly') || lower.includes('zawo') || lower.includes('igbe')) {
-    if (language === 'english') {
-      wetinFitDeyHappen = `Stomach cramping and watery stool (purging) indicates acute gastroenteritis, often caused by contaminated food, bacteria, or seasonal cholera.`;
-      wetinYouFitDoForHouse = `1. Prepare Oral Rehydration Salt (ORS / Salt-Sugar Solution): Mix 1 level teaspoon salt + 10 level teaspoons sugar (or 5 cubes) in 1 litre clean boiled water.\n2. Drink one cup after every loose stool.\n3. Eat light bland foods like rice, pap (akamu), or bananas.\n4. Avoid raw vegetables, street food, and sugary soda.`;
-      nextStep = `Visit ${topFacilities[0]} or your nearest clinic if purging exceeds 5 times in 24 hours, if there is blood in stool, or if you feel dizzy upon standing.`;
-      clarifyingQuestions = ['Is there any blood in the stool?', 'Can you hold fluids without vomiting?'];
-    } else if (language === 'hausa') {
-      wetinFitDeyHappen = `Zawo da ciwon ciki na faruwa ne idan kwayoyin cuta sun shiga ciki ta hanyar abinci ko ruwa maras tsabta.`;
-      wetinYouFitDoForHouse = `1. Hada ruwan gishiri da sukari (ORS): Karamin cokali daya na gishiri da cokula goma na sukari a cikin lita daya ta ruwa mai tsabta.\n2. Sha kofi daya a duk lokacin da aka yi zawo.\n3. Ci abinci mai laushi kamar koko.`;
-      nextStep = `Idan zawo ya wuce sau 5 a rana daya ko akwai jini a bayan gida, tafi ${topFacilities[0]} ba tare da bata lokaci ba.`;
-      clarifyingQuestions = ['Akwai jini a cikin zawon?', 'Kana iya rike ruwa a ciki ba tare da amai ba?'];
-    } else if (language === 'yoruba') {
-      wetinFitDeyHappen = `Àrùn gbuuru (ìgbẹ́ gbuuru) ati inu rírun sábà máa ń wá láti ara oúnjẹ tàbí omi tí kò mọ́.`;
-      wetinYouFitDoForHouse = `1. Mu omi iyọ ati suga (ORS): Sibi iyọ kekere 1 ati sibi suga 10 sinu lita omi mimọ kan.\n2. Mu ife kan lẹhin igbẹ kọọkan.\n3. Jẹ ounjẹ fẹlẹfẹlẹ bii èkọ (ògì).`;
-      nextStep = `Tí ìgbẹ́ gbuuru bá ju ẹ̀ẹ̀mẹ́fà lọ lójúmọ́ kan tàbí ẹ̀jẹ̀ wà nínú rẹ̀, ẹ lọ sí ${topFacilities[0]} kíá.`;
-      clarifyingQuestions = ['Ṣé ẹ̀jẹ̀ wà nínú ìgbẹ́ náà?', 'Ṣé o lè mu omi láì bì?'];
-    } else {
-      wetinFitDeyHappen = `Ayaah, sorry o! When belle dey bite and person dey purge watery stool, e fit be say dirty germ, bad food, or contaminated water don enter belly (gastroenteritis). During rainy season, e fit even be cholera warning.`;
-      wetinYouFitDoForHouse = `1. Mix Salt-Sugar Solution (Home ORS): Measure 1 clean bottle of water (or 2 pure water sachets), put 1 level small spoon of salt plus 10 level small spoon of sugar (or 5 cubes). Turn am well make e melt.\n2. Drink one full cup every time you go toilet purge.\n3. Eat soft pap (akamu) or boiled rice in small quantity.\n4. Avoid soft drinks or roadside food now.`;
-      nextStep = `If the purging pass 5 to 6 times inside one day, or you see blood inside the stool, move go ${topFacilities[0]} or any clinic close to you immediately.`;
-      clarifyingQuestions = [
-        'Ehya, blood dey inside the watery stool?',
-        'You fit hold water or ORS for stomach, abi you dey vomit am out?'
-      ];
-    }
-  } else {
-    wetinFitDeyHappen = `Ehya, pele o! The way your body dey do you fit be from heavy stress, body tiredness, or early sign say infection or malaria dey try enter body.`;
-    wetinYouFitDoForHouse = `1. Rest well-well for room wey breeze dey blow.\n2. Drink plenty clean water make your system cool down.\n3. Watch your body make you see if hot body or headache go join am.`;
-    nextStep = `If the body pain or weakness no gree stop after 24 to 48 hours, waka go see nurse or doctor for ${topFacilities[0]} or your nearest General Hospital.`;
-    clarifyingQuestions = [
-      'How long this body weakness or pain don start?',
-      'You get any condition before, like blood pressure, ulcer, or sickle cell?'
-    ];
-  }
-
-  return {
-    language,
-    urgencyLevel: 'urgent',
-    isRedFlag: false,
-    empathyNote: language === 'hausa' ? 'Sannu! Allah Ya sauwake.' : language === 'yoruba' ? 'Pẹlẹ o! Ẹ jẹ́ k\'á bójútó e.' : language === 'english' ? 'So sorry to hear about this.' : 'Pele o! Take am easy, make I break down wetin you fit do.',
-    wetinFitDeyHappen,
-    wetinYouFitDoForHouse,
-    nextStep,
-    potentialCauses: wetinFitDeyHappen,
-    homeManagement: wetinYouFitDoForHouse,
-    actionPlan: nextStep,
-    clarifyingQuestions,
-    recommendedFacilities: topFacilities,
-    detectedLocation: stateName,
-    fullFormattedResponse: `💚\n\n` +
-      `**[Wetin Fit Dey Happen]**\n${wetinFitDeyHappen}\n\n` +
-      `**[Wetin You Fit Do For House]**\n${wetinYouFitDoForHouse}\n\n` +
-      `**[Next Step]**\n${nextStep}\n\n${disclaimer}`,
-    disclaimer
-  };
+function isGeminiConfigured(): boolean {
+  return Boolean(ai && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY');
 }
 
-// API Routes
-app.get('/api/health', (req: Request, res: Response) => {
+// Health check
+app.get('/api/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     service: 'NaijaHealth AI Medical Triage Service (Multilingual Edition)',
-    hasApiKey: !!process.env.GEMINI_API_KEY,
-    timestamp: new Date().toISOString()
+    languages: ['pidgin', 'english', 'hausa', 'yoruba', 'igbo'],
+    hasApiKey: isGeminiConfigured(),
+    timestamp: new Date().toISOString(),
   });
 });
 
+// Nigerian Hospital & Emergency Directory
 app.get('/api/facilities', (req: Request, res: Response) => {
   const state = req.query.state as string;
   if (state && NIGERIAN_STATES_DATA[state]) {
     return res.json({
       state,
-      data: NIGERIAN_STATES_DATA[state]
+      data: NIGERIAN_STATES_DATA[state],
     });
   }
   return res.json({
     states: Object.keys(NIGERIAN_STATES_DATA),
     nationalHotlines: NATIONAL_EMERGENCY_NUMBERS,
-    redFlags: RED_FLAG_SYMPTOMS
+    redFlags: RED_FLAG_SYMPTOMS,
   });
 });
 
-// Triage Evaluation Endpoint supporting Language selection
+// Triage Evaluation Endpoint supporting Pidgin, English, Hausa, Yoruba, and Igbo
 app.post('/api/triage', async (req: Request, res: Response) => {
-  try {
-    const { message, conversationHistory = [], userLocation, language = 'pidgin' } = req.body;
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+  const targetLang = resolveTargetLanguage(req.body?.language, message, Boolean(req.body?.languageLocked));
+  const conversationHistory = Array.isArray(req.body?.conversationHistory) ? req.body.conversationHistory : [];
+  const userLocation = req.body?.userLocation;
 
-    if (!message || typeof message !== 'string' || !message.trim()) {
-      return res.status(400).json({ error: 'Symptom description message is required.' });
-    }
+  if (!message) {
+    return res.status(400).json({ error: 'Symptom description message is required.' });
+  }
 
-    const targetLang: SupportedLanguage = ['pidgin', 'english', 'hausa', 'yoruba', 'igbo'].includes(language) 
-      ? language 
-      : 'pidgin';
+  // Detect location from message or payload
+  const detectedFromMsg = detectStateFromText(message);
+  const targetState =
+    userLocation?.state && NIGERIAN_STATES_DATA[userLocation.state]
+      ? userLocation.state
+      : detectedFromMsg || 'Lagos';
+  const stateData = NIGERIAN_STATES_DATA[targetState] || NIGERIAN_STATES_DATA['Lagos'];
+  const facilitiesList = stateData.facilities.map((f) => `${f.name} (${f.city})`).join(', ');
+  const headers = getSectionHeaders(targetLang);
 
-    // Safety check first: detect local red-flag triggers immediately
-    const immediateSafetyCheck = detectLocalRedFlags(message);
+  // Safety check first: detect red flags across all 5 languages immediately
+  const immediateSafetyCheck = detectLocalRedFlags(message);
+  if (immediateSafetyCheck.isRedFlag) {
+    console.log(`Immediate red-flag detected (${targetLang}). Dispatching urgent response without waiting.`);
+    const emergencyResult = buildFallbackTriage(message, targetState, targetLang);
+    return res.json(emergencyResult);
+  }
 
-    // Detect location from message or payload
-    const detectedFromMsg = detectStateFromText(message);
-    const targetState = userLocation?.state || detectedFromMsg || 'Lagos';
-    const stateData = NIGERIAN_STATES_DATA[targetState] || NIGERIAN_STATES_DATA['Lagos'];
-    const facilitiesList = stateData.facilities.map(f => `${f.name} inside ${f.city}`).join(', ');
+  // If API key not configured, use full 5-language clinical fallback
+  if (!ai || !isGeminiConfigured()) {
+    console.log(`Using multilingual rule-based triage in ${targetLang} (API key unconfigured).`);
+    return res.json(buildFallbackTriage(message, targetState, targetLang));
+  }
 
-    // If red flag is triggered, respond immediately without delay!
-    if (immediateSafetyCheck.isRedFlag) {
-      console.log('Immediate red-flag detected. Dispatching emergency triage without waiting.');
-      const emergencyResult = buildFallbackTriage(message, targetState, targetLang);
-      return res.json(emergencyResult);
-    }
+  const languageSpecs: Record<SupportedLanguage, string> = {
+    pidgin:
+      'Write EVERY SINGLE JSON STRING strictly in fluent, warm Nigerian Pidgin English (e.g. "Ayaah", "Pele o", "Sorry o", "hot body", "purging"). Never switch into formal textbook English. Use [Wetin Fit Dey Happen], [Wetin You Fit Do For House], [Next Step].',
+    english:
+      'Write EVERY SINGLE JSON STRING strictly in simple, warm, everyday Nigerian English free of heavy clinical jargon. Use [Potential Causes], [Home Management], [Action Plan].',
+    hausa:
+      'Write EVERY SINGLE JSON STRING strictly and completely in natural, everyday Hausa (Harshen Hausa), e.g., "Sannu da jiki", "Allah Ya sauwake". DO NOT reply in English or Pidgin! Even if the user message contained English words, your entire response MUST be 100% Hausa (you may keep medical terms like ORS, Malaria, Typhoid, and Nigerian hospital names).',
+    yoruba:
+      'Write EVERY SINGLE JSON STRING strictly and completely in natural, everyday Yoruba (Èdè Yorùbá) with clear tone marks/diacritics, e.g., "Pẹ̀lẹ́ o", "Ẹ má bínú". DO NOT reply in English or Pidgin! Even if the user message contained English words, your entire response MUST be 100% Yoruba (you may keep terms like ORS, Malaria, Typhoid, and Nigerian hospital names).',
+    igbo:
+      'Write EVERY SINGLE JSON STRING strictly and completely in natural, everyday Igbo (Asụsụ Igbo) with clear diacritics, e.g., "Ndo nu", "Ndewo". DO NOT reply in English or Pidgin! Even if the user message contained English words, your entire response MUST be 100% Igbo (you may keep terms like ORS, Malaria, Typhoid, and Nigerian hospital names).',
+  };
 
-    // Fallback if AI SDK or key is not active or placeholder
-    const isApiKeyValid = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY';
-    if (!ai || !isApiKeyValid) {
-      console.log(`Using rule-based triage fallback in ${targetLang} (API key unconfigured).`);
-      const fallbackResult = buildFallbackTriage(message, targetState, targetLang);
-      return res.json(fallbackResult);
-    }
+  const systemInstruction = `You are "NaijaHealth AI", an empathetic, culturally grounded medical triage assistant supporting communities across Nigeria.
+TARGET LANGUAGE: ${targetLang.toUpperCase()}
+LANGUAGE REQUIREMENT: ${languageSpecs[targetLang]}
 
-    // Define Language guidelines for the model
-    let langInstruction = `You MUST reply strictly and entirely in fluent, natural Nigerian Pidgin English. Use comforting words like "Ayaah", "Pele", "Sorry o". Section titles: [Wetin Fit Dey Happen], [Wetin You Fit Do For House], [Next Step].`;
-    if (targetLang === 'english') {
-      langInstruction = `You MUST reply in simple, clear, empathetic everyday English. Avoid complex medical jargon so ordinary people easily understand. Section titles: [Potential Causes], [Home Management], [Action Plan].`;
-    } else if (targetLang === 'hausa') {
-      langInstruction = `You MUST reply strictly and entirely in natural, everyday Hausa (Harshen Hausa). Use comforting words like "Sannu", "Allah Ya sauwake". Section titles: [Abubuwan Da Ka Iya Kawo Shi], [Maganin Gida / Abinda Zaka Iya Yi A Gida], [Mataki Na Gaba / Asibiti].`;
-    } else if (targetLang === 'yoruba') {
-      langInstruction = `You MUST reply strictly and entirely in natural, everyday Yoruba (Èdè Yorùbá). Use comforting words like "Pẹlẹ o", "Ẹ má binu". Section titles: [Kini O Le Fa E], [Ohun Ti O Le Se Ni Ile], [Igbese To Kan / Ile Iwosan].`;
-    } else if (targetLang === 'igbo') {
-      langInstruction = `You MUST reply strictly and entirely in natural, everyday Igbo (Asụsụ Igbo). Use comforting words like "Ndo", "Ndewo". Section titles: [Ihe Nwere Ike Na-ebute Ya], [Ihe I Nwere Ike Ime n'Ulo], [Ihe I Ga-eme Na-esonụ / Hospital].`;
-    }
+CLINICAL & CULTURAL GUIDANCE:
+- Avoid complex medical terminology; explain gently in plain everyday language so anyone in a Nigerian market can understand.
+- Include local Nigerian health context where appropriate: Malaria / Typhoid awareness (advise mRDT malaria testing before medication), purging/cholera awareness, and Sickle Cell precautions for severe joint/bone crisis.
+- PREGNANCY & MATERNAL CARE PROTOCOL:
+  * If the user is pregnant (expectant mother / "get belle" / "mai ciki" / "oyún" / "dị ime"): FIRST screen for obstetric danger signs (vaginal bleeding/spotting, severe headache, blurred vision, sudden face or hand swelling [pre-eclampsia], convulsions, leaking fluid/water breaking early, decreased or absent baby kicks/movement, severe abdominal pain, high fever).
+  * If ANY obstetric danger sign is present -> IMMEDIATELY set "isRedFlag": true and "urgencyLevel": "emergency", forbid ALL herbs/home drugs, and urge immediate travel to a General/Teaching Hospital Maternity Emergency Ward in ${targetState} or call 112.
+  * For non-emergency pregnancy complaints (morning sickness, mild fatigue, mild fever, mild backache, urinary discomfort): warn explicitly NEVER to take unprescribed painkillers (especially NSAIDs like Ibuprofen, Diclofenac, Aspirin), unprescribed antibiotics/antimalarials, or local herbal mixtures ("agbo"), give safe hydration/rest guidance, and advise prompt Antenatal Clinic (ANC) doctor/midwife review.
+- For purging/dehydration, give the exact safe Salt-Sugar Solution (Home ORS) ratio: 1 level small teaspoon of salt + 10 level small teaspoons of sugar (or 5 sugar cubes) dissolved in 1 litre (two 50cl pure water sachets) of clean boiled/cooled water.
+- For high fever, advise lukewarm tepid sponging (explicitly warn NEVER to use cold water, ice, or methylated spirit).
+- Warn gently against unprescribed antibiotics or unsafe herbal concoctions.
+- Always route physical care to ${targetState} State hospitals: ${facilitiesList} (Emergency hotlines: 112, NCDC 6232, ${stateData.emergencyHotlines.join(', ')}).
 
-    const systemInstruction = `You are "NaijaHealth AI", an empathetic medical triage assistant inside WhatsApp and conversational chat, made specially to support communities across Nigeria.
-Selected Language: ${targetLang.toUpperCase()}.
-${langInstruction}
+CRITICAL SAFETY PROTOCOL:
+- If ANY red-flag symptom is described (sharp/crushing chest pain, severe breathing difficulty, sudden half-body weakness / stroke FAST signs, heavy uncontrolled bleeding, unconsciousness/seizure, neck stiffness with fever, OR pregnancy danger signs such as bleeding in pregnancy, pre-eclampsia headache/vision/face swelling, early water breaking, or absent baby movement):
+  * Set "isRedFlag": true and "urgencyLevel": "emergency".
+  * Set "wetinYouFitDoForHouse" to a brief warning in ${targetLang} saying ALL home remedies are cancelled — go immediately to emergency care!
+  * Direct them urgently to the nearest emergency hospital in ${targetState} and to call 112.
+- Keep responses concise, empathetic, and structured clearly.`;
 
-HOW YOU GO DEY TALK:
-- Clear your mind of big big medical grammar and medical English jargon. Explain everything break-down style make ordinary person for market understand easily.
-- Show serious empathy and bedside warmth.
-- If watery stool or diarrhea, mention "purging".
-- If fever, explain hot body and malaria (mosquito bites) / typhoid awareness.
-- If dehydration, give exact Salt-Sugar Solution (ORS) ratio: 1 level small tea-spoon salt + 10 level small tea-spoon sugar (or 5 sugar cubes) in 1 clean bottle or 2 pure water sachets (1 litre).
+  const promptText = `Patient State/City: ${targetState}, Nigeria (City note: ${userLocation?.city || 'not specified'}).
+Target Output Language: ${targetLang.toUpperCase()}.
+Recent Conversation:
+${conversationHistory
+  .slice(-6)
+  .map((m: any) => `${m.role === 'user' ? 'Patient' : 'NaijaHealth AI'}: ${m.parts?.[0]?.text || m.text || ''}`)
+  .join('\n')}
 
-YOUR STRICT RESPONSE STRUCTURE:
-1. [Wetin Fit Dey Happen] / [Potential Causes]: Explain symptoms softly.
-2. [Wetin You Fit Do For House] / [Home Management]: Safe first-aid and home steps. Warn against unprescribed antibiotics or toxic concoctions.
-3. [Next Step] / [Action Plan]: Exact conditions and facilities to visit in their state (${targetState}) such as: ${facilitiesList}.
-
-SAFETY RULES (NO DEY JOKE WITH THIS ONE):
-- Continuous reminder say you be AI assistant, not a real doctor.
-- IF RED-FLAG EMERGENCY (heavy chest pain, breath seize/hang, sudden stroke signs, heavy blood rush, person faint/unconscious):
-  * DROP ALL HOME REMEDY TALK COMPLETELY!
-  * Instruct them aggressively to rush to the nearest emergency ward in ${targetState} immediately!
-  * Set isRedFlag to true and urgencyLevel to "emergency".
-  * Mention National 112, NCDC 6232, and state hotlines.`;
-
-    const promptText = `User Location Context: Patient is in ${targetState} State, Nigeria. Language requested: ${targetLang}.
-Previous Chat History:
-${conversationHistory.map((m: any) => `${m.role === 'user' ? 'Patient' : 'NaijaHealth AI'}: ${m.parts?.[0]?.text || m.text || ''}`).join('\n')}
-
-Patient Symptoms:
+Patient Message:
 "${message}"
 
-Evaluate this patient's symptoms thoroughly in ${targetLang} following the 3-part triage structure.`;
+Respond in JSON with every narrative string written in ${targetLang.toUpperCase()}.`;
 
-    const generatePromise = ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+  const startedAt = Date.now();
+  const baseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      isRedFlag: {
+        type: Type.BOOLEAN,
+        description:
+          'True only if dangerous red flags are present (severe chest pain, inability to breathe, stroke weakness, heavy bleeding, unconsciousness/seizure).',
+      },
+      urgencyLevel: {
+        type: Type.STRING,
+        enum: ['emergency', 'urgent', 'routine'],
+        description: 'Clinical triage priority level',
+      },
+      empathyNote: {
+        type: Type.STRING,
+        description: `Short warm comforting greeting strictly in ${targetLang}`,
+      },
+      emergencyWarning: {
+        type: Type.STRING,
+        description: `Urgent warning strictly in ${targetLang} if isRedFlag is true, otherwise empty string`,
+      },
+      wetinFitDeyHappen: {
+        type: Type.STRING,
+        description: `Part 1 (${headers.causes}): Simple, non-jargon explanation strictly in ${targetLang}`,
+      },
+      wetinYouFitDoForHouse: {
+        type: Type.STRING,
+        description: `Part 2 (${headers.home}): Safe first-aid and home care strictly in ${targetLang}. Say home remedies cancelled if isRedFlag is true.`,
+      },
+      nextStep: {
+        type: Type.STRING,
+        description: `Part 3 (${headers.action}): Clear timeline & hospital guidance inside ${targetState} strictly in ${targetLang}`,
+      },
+      clarifyingQuestions: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+        description: `1 to 2 short helpful follow-up questions strictly in ${targetLang}`,
+      },
+      recommendedFacilities: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+        description: `2 to 3 recommended hospitals in ${targetState} State`,
+      },
+      detectedLocation: {
+        type: Type.STRING,
+        description: 'Nigerian state name',
+      },
+      disclaimer: {
+        type: Type.STRING,
+        description: `Brief AI medical disclaimer strictly in ${targetLang}`,
+      },
+    },
+    required: [
+      'isRedFlag',
+      'urgencyLevel',
+      'empathyNote',
+      'wetinFitDeyHappen',
+      'wetinYouFitDoForHouse',
+      'nextStep',
+      'disclaimer',
+    ],
+  };
+
+  async function callTriageModel(modelName: string, thinkingLevel: ThinkingLevel) {
+    const genPromise = ai!.models.generateContent({
+      model: modelName,
       contents: promptText,
       config: {
         systemInstruction,
+        thinkingConfig: { thinkingLevel },
         responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            isRedFlag: {
-              type: Type.BOOLEAN,
-              description: 'True if symptoms describe dangerous red flags like chest pain, breath seize, sudden stroke weakness, heavy bleeding, or unconsciousness.'
-            },
-            urgencyLevel: {
-              type: Type.STRING,
-              enum: ['emergency', 'urgent', 'routine'],
-              description: 'Triage priority level'
-            },
-            empathyNote: {
-              type: Type.STRING,
-              description: 'Warm comforting opening in chosen language'
-            },
-            emergencyWarning: {
-              type: Type.STRING,
-              description: 'Direct aggressive alert in chosen language if red-flag is triggered, else empty'
-            },
-            wetinFitDeyHappen: {
-              type: Type.STRING,
-              description: 'Part 1: Simple breakdown in chosen language without big medical grammar'
-            },
-            wetinYouFitDoForHouse: {
-              type: Type.STRING,
-              description: 'Part 2: Safe first-aid and home steps in chosen language. MUST be empty or say home remedy cancelled if isRedFlag is true.'
-            },
-            nextStep: {
-              type: Type.STRING,
-              description: 'Part 3: When and which hospital to visit inside their state in chosen language'
-            },
-            clarifyingQuestions: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: '1 to 2 short clarifying questions in chosen language if details are missing'
-            },
-            recommendedFacilities: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: 'Names of recommended hospitals in their state'
-            },
-            detectedLocation: {
-              type: Type.STRING,
-              description: 'State or city inside Nigeria'
-            },
-            fullFormattedResponse: {
-              type: Type.STRING,
-              description: 'Complete formatted response strictly in the chosen language with the 3 parts and disclaimer'
-            },
-            disclaimer: {
-              type: Type.STRING,
-              description: 'Disclaimer in the chosen language'
-            }
-          },
-          required: ['isRedFlag', 'urgencyLevel', 'wetinFitDeyHappen', 'wetinYouFitDoForHouse', 'nextStep', 'fullFormattedResponse', 'disclaimer']
-        }
-      }
+        responseSchema: baseSchema,
+      },
     });
-
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('AI response timed out')), 7000);
+      setTimeout(() => reject(new Error(`${modelName} timed out after 7s`)), 7000);
     });
+    return Promise.race([genPromise, timeoutPromise]);
+  }
 
-    const response = await Promise.race([generatePromise, timeoutPromise]);
+  try {
+    let response;
+    let usedModel = 'gemini-3.8-flash';
+    try {
+      response = await callTriageModel('gemini-3.8-flash', ThinkingLevel.LOW);
+    } catch (primaryErr: any) {
+      console.warn(
+        `Primary model gemini-3.8-flash error (${primaryErr?.status || primaryErr?.message}), trying gemini-3.1-flash-lite...`
+      );
+      usedModel = 'gemini-3.1-flash-lite';
+      response = await callTriageModel('gemini-3.1-flash-lite', ThinkingLevel.MINIMAL);
+    }
 
     const responseText = response.text;
     if (!responseText) {
@@ -424,36 +319,346 @@ Evaluate this patient's symptoms thoroughly in ${targetLang} following the 3-par
 
     const parsedData = JSON.parse(responseText);
 
-    parsedData.language = targetLang;
-    parsedData.potentialCauses = parsedData.wetinFitDeyHappen;
-    parsedData.homeManagement = parsedData.wetinYouFitDoForHouse;
-    parsedData.actionPlan = parsedData.nextStep;
+    // Ensure consistent normalized fields & build fullFormattedResponse server-side
+    const normalizedLocation =
+      parsedData.detectedLocation && NIGERIAN_STATES_DATA[parsedData.detectedLocation]
+        ? parsedData.detectedLocation
+        : targetState;
 
-    // Double-check our programmatic safety override
+    const causes = parsedData.wetinFitDeyHappen || '';
+    let home = parsedData.wetinYouFitDoForHouse || '';
+    const action = parsedData.nextStep || '';
+    const disclaimer = parsedData.disclaimer || headers.disclaimer;
+
+    // Double-check local red-flag enforcement
     if (immediateSafetyCheck.isRedFlag) {
       parsedData.isRedFlag = true;
       parsedData.urgencyLevel = 'emergency';
-      parsedData.wetinYouFitDoForHouse = 'All house remedies cancelled! Rush sharp-sharp go emergency unit for hospital.';
-      parsedData.homeManagement = parsedData.wetinYouFitDoForHouse;
+      home = buildFallbackTriage(message, normalizedLocation, targetLang).wetinYouFitDoForHouse;
     }
 
-    if (!parsedData.detectedLocation) {
-      parsedData.detectedLocation = targetState;
-    }
+    const recommendedFacilities =
+      Array.isArray(parsedData.recommendedFacilities) && parsedData.recommendedFacilities.length > 0
+        ? parsedData.recommendedFacilities
+        : stateData.facilities.map((f) => `${f.name} (${f.city})`).slice(0, 3);
 
-    return res.json(parsedData);
+    const finalPayload = {
+      ...parsedData,
+      language: targetLang,
+      detectedLocation: normalizedLocation,
+      recommendedFacilities,
+      wetinFitDeyHappen: causes,
+      wetinYouFitDoForHouse: home,
+      nextStep: action,
+      potentialCauses: causes,
+      homeManagement: home,
+      actionPlan: action,
+      disclaimer,
+      fullFormattedResponse: buildFormattedResponse(targetLang, {
+        isRedFlag: Boolean(parsedData.isRedFlag),
+        empathyNote: parsedData.empathyNote,
+        emergencyWarning: parsedData.emergencyWarning,
+        causes,
+        home,
+        action,
+        disclaimer,
+      }),
+    };
+
+    console.log(`Triage (${targetLang}) completed via ${usedModel} in ${Date.now() - startedAt}ms`);
+    return res.json(finalPayload);
   } catch (error: any) {
-    console.error('Error during triage processing:', error);
-    const fallbackResult = buildFallbackTriage(req.body.message || '', req.body.userLocation?.state || 'Lagos', req.body.language || 'pidgin');
+    console.error(`Triage (${targetLang}) AI error after ${Date.now() - startedAt}ms:`, error?.message || error);
+    const fallbackResult = buildFallbackTriage(message, targetState, targetLang);
     return res.json(fallbackResult);
   }
+});
+
+// Multilingual Text-to-Speech Endpoint using Gemini TTS (Pidgin, English, Hausa, Yoruba, Igbo)
+app.post('/api/tts', async (req: Request, res: Response) => {
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  const targetLang = getTargetLanguage(req.body?.language);
+
+  if (!text) {
+    return res.status(400).json({ error: 'Text is required for speech synthesis.' });
+  }
+
+  if (!ai || !isGeminiConfigured()) {
+    return res.status(503).json({ error: 'Server TTS unavailable without API key.' });
+  }
+
+  const cleanText = text
+    .replace(/[*_`#🚨💚⚠️❌🟡🟢\[\]]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 2000);
+
+  const langLabels: Record<SupportedLanguage, string> = {
+    pidgin: 'Nigerian Pidgin English',
+    english: 'Nigerian English',
+    hausa: 'Hausa',
+    yoruba: 'Yoruba',
+    igbo: 'Igbo',
+  };
+
+  try {
+    const ttsPromise = ai.models.generateContent({
+      model: 'gemini-3.8-flash-lite-tts',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Read aloud warmly and clearly in ${langLabels[targetLang]}: ${cleanText}`,
+            },
+          ],
+        },
+      ],
+      config: {
+        responseModalities: ['AUDIO'],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Kore' },
+          },
+        },
+      },
+    });
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('TTS generation timed out')), 9000);
+    });
+
+    const response = await Promise.race([ttsPromise, timeoutPromise]);
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+    if (!base64Audio) {
+      return res.status(502).json({ error: 'No audio generated.' });
+    }
+
+    return res.json({
+      audioBase64: base64Audio,
+      mimeType: 'audio/wav',
+    });
+  } catch (error: any) {
+    console.error(`TTS error (${targetLang}):`, error?.message || error);
+    return res.status(503).json({ error: 'TTS failed, please use browser speech fallback.' });
+  }
+});
+
+// Multilingual Audio Transcription + Spoken Language Detection Endpoint (Hausa, Yoruba, Igbo, Pidgin, English)
+app.post('/api/transcribe', async (req: Request, res: Response) => {
+  const audioBase64 = typeof req.body?.audioBase64 === 'string' ? req.body.audioBase64 : '';
+  const mimeType = typeof req.body?.mimeType === 'string' ? req.body.mimeType : 'audio/webm';
+  const hintLang = getTargetLanguage(req.body?.language);
+
+  if (!audioBase64) {
+    return res.status(400).json({ error: 'Audio data is required.' });
+  }
+
+  if (!ai || !isGeminiConfigured()) {
+    return res.status(503).json({ error: 'Server voice transcription unavailable without API key.' });
+  }
+
+  const cleanMimeType = mimeType.split(';')[0] || 'audio/webm';
+  const audioPart = {
+    inlineData: {
+      mimeType: cleanMimeType,
+      data: audioBase64,
+    },
+  };
+
+  let transcribedText = '';
+  let detectedLanguage: SupportedLanguage = hintLang;
+
+  let attempt1ErrMsg = '';
+  // Attempt 1: Dedicated gemini-3.5-transcribe
+  try {
+    const transcribePromise = ai.models.generateContent({
+      model: 'gemini-3.5-transcribe',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            audioPart,
+            {
+              text: 'Transcribe this audio verbatim.',
+            },
+          ],
+        },
+      ],
+    });
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('gemini-3.5-transcribe timed out')), 10000);
+    });
+
+    const response = await Promise.race([transcribePromise, timeoutPromise]);
+    transcribedText = (response.text || '').trim();
+    if (!transcribedText) {
+      attempt1ErrMsg = `empty_text candidates=${JSON.stringify(response.candidates?.[0]?.finishReason || 'none')}`;
+    }
+  } catch (err: any) {
+    attempt1ErrMsg = `${err?.status || ''} ${err?.message || err}`.trim();
+    console.warn(`gemini-3.5-transcribe fallback trigger (${hintLang}):`, attempt1ErrMsg);
+  }
+
+  // Attempt 2: Multimodal Gemini 3.8 Flash fallback (handles transcription + spoken language detection in JSON)
+  if (!transcribedText) {
+    try {
+      const flashPromise = ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              audioPart,
+              {
+                text: `Listen carefully to this patient voice recording from Nigeria (UI hint language: ${hintLang}). Transcribe verbatim what the speaker said in its original spoken language (do NOT translate to English if they spoke Hausa, Yoruba, Igbo, or Pidgin), and identify which supported language they spoke: "pidgin", "english", "hausa", "yoruba", or "igbo".`,
+              },
+            ],
+          },
+        ],
+        config: {
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              text: {
+                type: Type.STRING,
+                description: 'Verbatim transcription in the exact spoken language.',
+              },
+              detectedLanguage: {
+                type: Type.STRING,
+                enum: ['pidgin', 'english', 'hausa', 'yoruba', 'igbo'],
+                description: 'The language spoken in the recording.',
+              },
+            },
+            required: ['text', 'detectedLanguage'],
+          },
+        },
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('gemini-3.8-flash transcribe timed out')), 14000);
+      });
+
+      const flashRes = await Promise.race([flashPromise, timeoutPromise]);
+      const parsed = JSON.parse((flashRes.text || '{}').trim());
+      if (typeof parsed.text === 'string') {
+        transcribedText = parsed.text.trim();
+      }
+      if (parsed.detectedLanguage) {
+        detectedLanguage = getTargetLanguage(parsed.detectedLanguage);
+      }
+    } catch (fallbackErr: any) {
+      const attempt2Msg = `${fallbackErr?.status || ''} ${fallbackErr?.message || fallbackErr}`.trim();
+      console.warn(
+        `gemini-3.8-flash transcribe fallback trigger (${hintLang}) | attempt1=${attempt1ErrMsg} | attempt2=${attempt2Msg}`
+      );
+      // Attempt 3: Fast Gemini 3.1 Flash Lite audio fallback
+      try {
+        const litePromise = ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                audioPart,
+                {
+                  text: `Transcribe this Nigerian healthcare voice recording verbatim in its spoken language and detect the language as one of ["pidgin", "english", "hausa", "yoruba", "igbo"].`,
+                },
+              ],
+            },
+          ],
+          config: {
+            thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                text: { type: Type.STRING },
+                detectedLanguage: {
+                  type: Type.STRING,
+                  enum: ['pidgin', 'english', 'hausa', 'yoruba', 'igbo'],
+                },
+              },
+              required: ['text', 'detectedLanguage'],
+            },
+          },
+        });
+        const liteRes = await Promise.race([
+          litePromise,
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('flash-lite timeout')), 10000)),
+        ]);
+        const parsedLite = JSON.parse((liteRes.text || '{}').trim());
+        if (typeof parsedLite.text === 'string') {
+          transcribedText = parsedLite.text.trim();
+        }
+        if (parsedLite.detectedLanguage) {
+          detectedLanguage = getTargetLanguage(parsedLite.detectedLanguage);
+        }
+      } catch (liteErr: any) {
+        console.error(
+          `All transcription attempts failed (${hintLang}):`,
+          liteErr?.message || liteErr
+        );
+        return res.status(502).json({ error: 'Voice transcription failed.' });
+      }
+    }
+  } else {
+    // When gemini-3.5-transcribe succeeded cleanly, confirm spoken language cleanly
+    const ruleLang = detectExplicitNigerianLanguage(transcribedText);
+    if (ruleLang) {
+      detectedLanguage = ruleLang;
+    } else if (transcribedText.length >= 4) {
+      try {
+        const langCheck = await Promise.race([
+          ai.models.generateContent({
+            model: 'gemini-3.1-flash-lite',
+            contents: `Classify the language of this Nigerian healthcare message strictly as one of [pidgin, english, hausa, yoruba, igbo] (if standard English with no Pidgin grammar, choose "english"; UI hint was "${hintLang}"):\n"${transcribedText}"`,
+            config: {
+              thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+              responseMimeType: 'application/json',
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  detectedLanguage: {
+                    type: Type.STRING,
+                    enum: ['pidgin', 'english', 'hausa', 'yoruba', 'igbo'],
+                  },
+                },
+                required: ['detectedLanguage'],
+              },
+            },
+          }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('lang detect timeout')), 2500)),
+        ]);
+        const parsedLang = JSON.parse((langCheck.text || '{}').trim());
+        if (parsedLang.detectedLanguage) {
+          detectedLanguage = getTargetLanguage(parsedLang.detectedLanguage);
+        }
+      } catch {
+        detectedLanguage = resolveTargetLanguage(hintLang, transcribedText);
+      }
+    }
+  }
+
+  if (!transcribedText) {
+    return res.status(422).json({ error: 'Could not detect clear speech.' });
+  }
+
+  return res.json({
+    text: transcribedText,
+    detectedLanguage,
+  });
 });
 
 // Setup Vite middlewares in development or serve static in production
 async function startServer() {
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));
-    app.get('*', (req: Request, res: Response) => {
+    app.get('*', (_req: Request, res: Response) => {
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
   } else {
