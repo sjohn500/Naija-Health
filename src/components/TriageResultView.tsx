@@ -1,19 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   AlertTriangle,
-  CheckCircle2,
   HelpCircle,
   Volume2,
   VolumeX,
   Check,
   Building2,
   ArrowRight,
-  ShieldAlert,
   Share2,
   MapPin,
   PhoneCall,
   Loader2,
   BookOpen,
+  HeartPulse,
+  ShieldAlert,
 } from 'lucide-react';
 import { TriageResult, SupportedLanguage } from '../types/triage';
 import { TRANSLATIONS } from '../data/localization';
@@ -117,7 +117,6 @@ export const TriageResultView: React.FC<TriageResultViewProps> = ({
       ? `${triage.empathyNote || ''}. ${triage.emergencyWarning || ''}. ${tc.actionTitle}: ${nextStepText}.`
       : `${triage.empathyNote || ''}. ${tc.causesTitle}: ${causesText}. ${tc.homeTitle}: ${homeText}. ${tc.actionTitle}: ${nextStepText}.`;
 
-    // Play immediately from cache if already generated
     if (cachedAudioUrlRef.current) {
       try {
         const audio = new Audio(cachedAudioUrlRef.current);
@@ -200,279 +199,241 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
     });
   };
 
+  const severityLabel = triage.isRedFlag
+    ? tc.emergencyEval
+    : triage.urgencyLevel === 'urgent'
+    ? tc.urgentReview
+    : tc.routineCare;
+
+  const sevClass = triage.isRedFlag ? 'is-danger' : triage.urgencyLevel === 'urgent' ? '' : 'is-ok';
+
   return (
-    <div
-      className={`rounded-2xl bg-white border transition-all overflow-hidden ${
-        triage.isRedFlag
-          ? 'border-red-400 shadow-[0_4px_24px_rgba(220,38,38,0.08)] ring-1 ring-red-400/40'
-          : triage.urgencyLevel === 'urgent'
-          ? 'border-amber-300 shadow-[0_4px_20px_rgba(217,119,6,0.06)]'
-          : 'border-emerald-200/90 shadow-[0_4px_20px_rgba(0,135,81,0.06)]'
-      }`}
-    >
-      {/* Sleek Top Clinical Ribbon */}
-      <div
-        className={`px-4 sm:px-5 py-3 border-b flex flex-wrap items-center justify-between gap-2.5 ${
-          triage.isRedFlag
-            ? 'bg-red-50/90 border-red-200 text-red-900'
-            : triage.urgencyLevel === 'urgent'
-            ? 'bg-amber-50/80 border-amber-200/80 text-amber-900'
-            : 'bg-[#F4F9F6] border-emerald-100 text-[#05472A]'
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          {triage.isRedFlag ? (
-            <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
-          ) : triage.urgencyLevel === 'urgent' ? (
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-          ) : (
-            <CheckCircle2 className="w-4 h-4 text-[#008751] shrink-0" />
-          )}
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-xs tracking-wider uppercase">
-              {triage.isRedFlag
-                ? tc.emergencyEval
-                : triage.urgencyLevel === 'urgent'
-                ? tc.urgentReview
-                : tc.routineCare}
-            </span>
-            {triage.detectedLocation && (
-              <span className="text-[11px] font-medium text-stone-500 flex items-center gap-0.5">
-                <MapPin className="w-3 h-3 text-[#008751]" />
-                {triage.detectedLocation}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Action icons */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={handleToggleSpeech}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              isPlayingAudio
-                ? 'bg-red-600 text-white'
-                : 'bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 shadow-2xs'
-            }`}
-            title={tc.listen}
-          >
-            {isLoadingAudio ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#008751]" />
-                <span>{tc.preparingAudio}</span>
-              </>
-            ) : isPlayingAudio ? (
-              <>
-                <VolumeX className="w-3.5 h-3.5" />
-                <span>{tc.stopAudio}</span>
-              </>
-            ) : (
-              <>
-                <Volume2 className="w-3.5 h-3.5 text-[#008751]" />
-                <span>{tc.listen}</span>
-              </>
-            )}
-          </button>
-
-          <button
-            onClick={handleCopyWhatsApp}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-            title={tc.share}
-          >
-            {copied ? (
-              <Check className="w-3.5 h-3.5 text-emerald-600" />
-            ) : (
-              <Share2 className="w-3.5 h-3.5 text-stone-500" />
-            )}
-            <span className="hidden sm:inline">{copied ? tc.copied : tc.share}</span>
-          </button>
-        </div>
+    <div className="answer" aria-live="polite">
+      <div className="answer-head">
+        <span
+          className="brand-mark"
+          style={{ width: 24, height: 24, borderRadius: 8 }}
+          aria-hidden="true"
+        >
+          <HeartPulse className="w-3.5 h-3.5" strokeWidth={2.4} />
+        </span>
+        <span className="who">NaijaHealth AI</span>
+        {triage.detectedLocation && (
+          <span className="time" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <MapPin className="w-3 h-3" strokeWidth={2.2} />
+            {triage.detectedLocation}
+          </span>
+        )}
+        <span className={`sev ${sevClass}`}>
+          <i aria-hidden="true" />
+          {severityLabel}
+        </span>
       </div>
 
-      {/* Empathy Note */}
       {triage.empathyNote && (
-        <div className="px-5 pt-4 text-xs sm:text-sm font-semibold text-[#008751] flex items-center gap-1.5">
-          <span>💚</span>
-          <span>{triage.empathyNote}</span>
-        </div>
+        <p style={{ color: 'var(--brand)', fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>
+          💚 {triage.empathyNote}
+        </p>
       )}
 
-      {/* Red-Flag Urgent Callout if Active */}
       {triage.isRedFlag && (
-        <div className="m-4 p-4 rounded-xl bg-red-600 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h4 className="font-bold text-sm tracking-tight flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4 text-white" />
-              <span>{tc.immediateAttention}</span>
-            </h4>
-            <p className="text-xs text-red-100 mt-0.5 leading-relaxed">
-              {triage.emergencyWarning || tc.defaultEmergencyWarning}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <a
-              href="tel:112"
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white text-red-700 font-bold text-xs hover:bg-red-50 transition-colors shadow-2xs"
-            >
-              <PhoneCall className="w-3.5 h-3.5 text-red-600" />
-              <span>{tc.call112Free}</span>
-            </a>
-          </div>
+        <div className="sheet is-danger" style={{ marginBottom: 12 }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--danger)' }}>
+            <AlertTriangle className="w-4 h-4" strokeWidth={2.2} />
+            {tc.immediateAttention}
+          </h3>
+          <p style={{ color: 'var(--ink-2)' }}>
+            {triage.emergencyWarning || tc.defaultEmergencyWarning}
+          </p>
+          <a
+            href="tel:112"
+            className="btn btn-danger btn-sm"
+            style={{ marginTop: 10, textDecoration: 'none' }}
+          >
+            <PhoneCall className="w-3.5 h-3.5" strokeWidth={2.2} />
+            {tc.call112Free}
+          </a>
         </div>
       )}
 
-      {/* Contextual Nigerian Healthcare Illustration Strip */}
-      <div className="mx-4 sm:mx-5 mt-3.5 rounded-xl border border-stone-200/80 bg-[#F9FAF9] p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="answer-body">
+        <ol>
+          <li>
+            <span className="n">1</span>
+            <div>
+              <b style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 650 }}>
+                {tc.causesTitle}
+              </b>
+              <p style={{ whiteSpace: 'pre-line', fontSize: 13.5 }}>{causesText}</p>
+            </div>
+          </li>
+          <li>
+            <span className="n">2</span>
+            <div>
+              <b style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 650 }}>
+                {tc.homeTitle}
+              </b>
+              {triage.isRedFlag && (
+                <span className="sev is-danger" style={{ marginLeft: 8, marginTop: 0 }}>
+                  <i aria-hidden="true" />
+                  {tc.bypassedBadge}
+                </span>
+              )}
+              <p
+                style={{
+                  whiteSpace: 'pre-line',
+                  fontSize: 13.5,
+                  color: triage.isRedFlag ? 'var(--danger)' : 'var(--ink-2)',
+                  fontStyle: triage.isRedFlag ? 'italic' : 'normal',
+                }}
+              >
+                {homeText || (triage.isRedFlag ? tc.homeWithheld : tc.defaultHomeRest)}
+              </p>
+            </div>
+          </li>
+          <li>
+            <span className="n">3</span>
+            <div>
+              <b style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 650 }}>
+                {tc.actionTitle}
+              </b>
+              <p style={{ whiteSpace: 'pre-line', fontSize: 13.5 }}>{nextStepText}</p>
+
+              {triage.recommendedFacilities && triage.recommendedFacilities.length > 0 && (
+                <div className="chip-row" style={{ marginTop: 8 }}>
+                  {triage.recommendedFacilities.map((fac, i) => (
+                    <span className="chip" key={i}>
+                      <Building2 className="w-3 h-3" strokeWidth={2.2} />
+                      {fac}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      {/* Contextual Nigerian photo guide */}
+      <div className="row-card" style={{ marginTop: 14, cursor: 'default' }}>
         <ResilientImage
           src={visualMeta.src}
           alt={visualCopy.title}
           variant={visualMeta.key}
-          className={`w-full sm:w-36 shrink-0 rounded-lg border border-stone-200/70 ${visualMeta.aspectClass}`}
+          className="w-20 shrink-0 rounded-lg overflow-hidden"
           imgClassName="w-full h-full object-cover object-[50%_20%]"
         />
-        <div className="flex-1 min-w-0 space-y-1">
-          <h4 className="text-xs sm:text-sm font-bold text-stone-900 leading-snug">
-            {visualCopy.title}
-          </h4>
-          <p className="text-[11px] sm:text-xs text-stone-600 leading-relaxed">
+        <div className="rc-body">
+          <b>{visualCopy.title}</b>
+          <span style={{ WebkitLineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
             {visualCopy.caption}
-          </p>
-          <div className="pt-0.5">
-            {visualMeta.key === 'hospital' ? (
-              <button
-                type="button"
-                onClick={onOpenHospitals}
-                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#008751] hover:text-[#05472A] transition-colors cursor-pointer"
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>{tv.hospitalsCta}</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            ) : visualMeta.linkedGuideId && onOpenFirstAid ? (
-              <button
-                type="button"
-                onClick={() => onOpenFirstAid(visualMeta.linkedGuideId!)}
-                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#008751] hover:text-[#05472A] transition-colors cursor-pointer"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>{tv.openGuideCta}</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      {/* 3 Structured Sections */}
-      <div className="p-4 sm:p-5 space-y-4">
-        {/* 1. Potential Causes */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-stone-900 font-bold text-xs sm:text-sm">
-            <span className="flex items-center justify-center w-5 h-5 rounded-md bg-emerald-100 text-[#008751] font-bold text-xs">
-              1
-            </span>
-            <span className="text-[#05472A] tracking-tight">[{tc.causesTitle}]</span>
-          </div>
-          <p className="text-xs sm:text-sm text-stone-700 leading-relaxed pl-7 whitespace-pre-line">
-            {causesText}
-          </p>
-        </div>
-
-        <div className="border-t border-stone-100" />
-
-        {/* 2. Home Management */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-stone-900 font-bold text-xs sm:text-sm">
-            <span
-              className={`flex items-center justify-center w-5 h-5 rounded-md font-bold text-xs ${
-                triage.isRedFlag ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-[#008751]'
-              }`}
-            >
-              2
-            </span>
-            <span className="text-[#05472A] tracking-tight">[{tc.homeTitle}]</span>
-            {triage.isRedFlag && (
-              <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md border border-red-200 ml-auto">
-                {tc.bypassedBadge}
-              </span>
-            )}
-          </div>
-          <p
-            className={`text-xs sm:text-sm leading-relaxed pl-7 whitespace-pre-line ${
-              triage.isRedFlag ? 'text-red-700 font-medium italic' : 'text-stone-700'
-            }`}
-          >
-            {homeText || (triage.isRedFlag ? tc.homeWithheld : tc.defaultHomeRest)}
-          </p>
-        </div>
-
-        <div className="border-t border-stone-100" />
-
-        {/* 3. Action Plan */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-stone-900 font-bold text-xs sm:text-sm">
-              <span className="flex items-center justify-center w-5 h-5 rounded-md bg-emerald-100 text-[#008751] font-bold text-xs">
-                3
-              </span>
-              <span className="text-[#05472A] tracking-tight">[{tc.actionTitle}]</span>
-            </div>
+          </span>
+          {visualMeta.key === 'hospital' ? (
             <button
+              type="button"
               onClick={onOpenHospitals}
-              className="text-[11px] font-semibold text-[#008751] hover:underline flex items-center gap-1 cursor-pointer"
+              className="go"
+              style={{
+                marginTop: 6,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                fontSize: 11.5,
+                fontWeight: 620,
+                color: 'var(--brand)',
+              }}
             >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>{tc.browseHospitals}</span>
+              <Building2 className="w-3 h-3" strokeWidth={2.2} />
+              {tv.hospitalsCta}
+              <ArrowRight className="w-3 h-3" strokeWidth={2.2} />
             </button>
-          </div>
-          <p className="text-xs sm:text-sm text-stone-700 leading-relaxed pl-7 whitespace-pre-line">
-            {nextStepText}
-          </p>
-
-          {/* Recommended Facilities Chips */}
-          {triage.recommendedFacilities && triage.recommendedFacilities.length > 0 && (
-            <div className="pl-7 pt-2 flex flex-wrap gap-1.5">
-              {triage.recommendedFacilities.map((fac, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-50 text-stone-800 text-[11px] font-medium border border-stone-200"
-                >
-                  <Building2 className="w-3 h-3 text-[#008751]" />
-                  <span>{fac}</span>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Follow-up / Clarifying Questions */}
-        {triage.clarifyingQuestions && triage.clarifyingQuestions.length > 0 && (
-          <div className="mt-3 p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/60 space-y-1.5">
-            <div className="flex items-center gap-1.5 text-amber-900 font-semibold text-xs">
-              <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
-              <span>{tc.clarifyingTitle}</span>
-            </div>
-            <div className="space-y-1">
-              {triage.clarifyingQuestions.map((q, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => onSelectClarifyingQuestion(`${tc.clarifyPrefix} ${q}`)}
-                  className="w-full text-left p-2 rounded-lg bg-white hover:bg-amber-100/40 border border-amber-200/50 text-xs text-stone-700 hover:text-stone-900 transition-colors flex items-center justify-between gap-2 group cursor-pointer"
-                >
-                  <span>{q}</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-amber-600 shrink-0 group-hover:translate-x-0.5 transition-transform" />
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Subtle Disclaimer Footer */}
-        <div className="pt-2 text-[10px] text-stone-400 leading-normal border-t border-stone-100">
-          {triage.disclaimer || tc.defaultDisclaimer}
+          ) : visualMeta.linkedGuideId && onOpenFirstAid ? (
+            <button
+              type="button"
+              onClick={() => onOpenFirstAid(visualMeta.linkedGuideId!)}
+              className="go"
+              style={{
+                marginTop: 6,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                fontSize: 11.5,
+                fontWeight: 620,
+                color: 'var(--brand)',
+              }}
+            >
+              <BookOpen className="w-3 h-3" strokeWidth={2.2} />
+              {tv.openGuideCta}
+              <ArrowRight className="w-3 h-3" strokeWidth={2.2} />
+            </button>
+          ) : null}
         </div>
       </div>
+
+      {/* Clarifying questions */}
+      {triage.clarifyingQuestions && triage.clarifyingQuestions.length > 0 && (
+        <div className="sheet is-warn" style={{ marginTop: 12 }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--amber)' }}>
+            <HelpCircle className="w-3.5 h-3.5" strokeWidth={2.2} />
+            {tc.clarifyingTitle}
+          </h3>
+          <div className="chip-row" style={{ marginTop: 8 }}>
+            {triage.clarifyingQuestions.map((q, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => onSelectClarifyingQuestion(`${tc.clarifyPrefix} ${q}`)}
+                className="chip"
+              >
+                {q}
+                <ArrowRight className="w-3 h-3" strokeWidth={2.2} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="answer-actions">
+        <button
+          type="button"
+          onClick={handleToggleSpeech}
+          className={`btn btn-sm ${isPlayingAudio ? 'btn-danger' : 'btn-primary'}`}
+          title={tc.listen}
+        >
+          {isLoadingAudio ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {tc.preparingAudio}
+            </>
+          ) : isPlayingAudio ? (
+            <>
+              <VolumeX className="w-3.5 h-3.5" strokeWidth={2.2} />
+              {tc.stopAudio}
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-3.5 h-3.5" strokeWidth={2.2} />
+              {tc.listen}
+            </>
+          )}
+        </button>
+
+        <button type="button" onClick={onOpenHospitals} className="btn btn-outline btn-sm">
+          <Building2 className="w-3.5 h-3.5" strokeWidth={2.2} />
+          {tc.browseHospitals}
+        </button>
+
+        <button type="button" onClick={handleCopyWhatsApp} className="btn btn-ghost btn-sm">
+          {copied ? (
+            <Check className="w-3.5 h-3.5" strokeWidth={2.4} style={{ color: 'var(--brand)' }} />
+          ) : (
+            <Share2 className="w-3.5 h-3.5" strokeWidth={2.2} />
+          )}
+          {copied ? tc.copied : tc.share}
+        </button>
+      </div>
+
+      <p className="answer-note">{triage.disclaimer || tc.defaultDisclaimer}</p>
     </div>
   );
 };
