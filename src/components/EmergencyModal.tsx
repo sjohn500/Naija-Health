@@ -31,9 +31,10 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
   const stateData = NIGERIAN_STATES_DATA[selectedState] || NIGERIAN_STATES_DATA['Lagos'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div 
-        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border-2 border-red-500 overflow-hidden max-h-[92vh] flex flex-col"
+    <div className="modal-backdrop">
+      <div
+        className="modal-card is-danger"
+        style={{ maxWidth: 672 }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="emergency-modal-title"
@@ -68,7 +69,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
         {/* Content body */}
         <div className="p-6 overflow-y-auto space-y-6">
           {/* Emergency Arrival Illustration with High-Contrast Gradient Scrim */}
-          <div className="relative rounded-2xl overflow-hidden border border-stone-200 shadow-xs aspect-video max-h-48 w-full">
+          <div className="relative rounded-2xl overflow-hidden border border-[color:var(--line)] shadow-xs aspect-video max-h-48 w-full">
             <ResilientImage
               src={VISUAL_ASSETS.hospital.src}
               alt="Nigerian Emergency Hospital & Ambulance Arrival"
@@ -95,10 +96,10 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <a 
                 href="tel:112"
-                className="flex items-center justify-between p-3 rounded-xl bg-white border border-red-200 hover:border-red-400 hover:shadow-xs transition-all group"
+                className="flex items-center justify-between p-3 rounded-xl bg-[color:var(--surface)] border border-red-200 hover:border-red-400 hover:shadow-xs transition-all group"
               >
                 <div>
-                  <div className="text-xs text-stone-500 font-medium">National Emergency Toll-Free</div>
+                  <div className="text-xs text-[color:var(--muted)] font-medium">National Emergency Toll-Free</div>
                   <div className="text-base font-extrabold text-red-600 group-hover:text-red-700">Call 112</div>
                 </div>
                 <Ambulance className="w-5 h-5 text-red-500 group-hover:scale-110 transition-transform" />
@@ -106,13 +107,13 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 
               <a 
                 href="tel:6232"
-                className="flex items-center justify-between p-3 rounded-xl bg-white border border-red-200 hover:border-red-400 hover:shadow-xs transition-all group"
+                className="flex items-center justify-between p-3 rounded-xl bg-[color:var(--surface)] border border-red-200 hover:border-red-400 hover:shadow-xs transition-all group"
               >
                 <div>
-                  <div className="text-xs text-stone-500 font-medium">NCDC Toll-Free Health Line</div>
-                  <div className="text-base font-extrabold text-stone-900 group-hover:text-emerald-700">Call 6232</div>
+                  <div className="text-xs text-[color:var(--muted)] font-medium">NCDC Toll-Free Health Line</div>
+                  <div className="text-base font-extrabold text-[color:var(--ink)] group-hover:text-[color:var(--brand)]">Call 6232</div>
                 </div>
-                <ShieldAlert className="w-5 h-5 text-emerald-600 group-hover:scale-110 transition-transform" />
+                <ShieldAlert className="w-5 h-5 text-[color:var(--brand)] group-hover:scale-110 transition-transform" />
               </a>
             </div>
 
@@ -135,7 +136,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 
           {/* Red Flag Symptoms Grid */}
           <div>
-            <h3 className="text-sm font-bold text-stone-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <h3 className="text-sm font-bold text-[color:var(--ink)] uppercase tracking-wider mb-3 flex items-center gap-2">
               <Clock className="w-4 h-4 text-red-600" />
               <span>Recognize Red-Flag Warning Signs</span>
             </h3>
@@ -143,14 +144,14 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
               {RED_FLAG_SYMPTOMS.map((symptom, idx) => (
                 <div 
                   key={idx}
-                  className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50 hover:bg-red-50/50 hover:border-red-200 transition-colors flex flex-col justify-between"
+                  className="p-3.5 rounded-2xl border border-[color:var(--line)] bg-[color:var(--surface-2)] hover:bg-red-50/50 hover:border-red-200 transition-colors flex flex-col justify-between"
                 >
                   <div>
-                    <h4 className="text-sm font-bold text-stone-900 mb-1 flex items-center gap-1.5">
+                    <h4 className="text-sm font-bold text-[color:var(--ink)] mb-1 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
                       {symptom.title}
                     </h4>
-                    <p className="text-xs text-stone-600 leading-relaxed">
+                    <p className="text-xs text-[color:var(--ink-2)] leading-relaxed">
                       {symptom.description}
                     </p>
                   </div>
@@ -170,26 +171,26 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
           </div>
 
           {/* Hospitals in Selected State */}
-          <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-700 mb-2.5 flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-emerald-600" />
+          <div className="bg-[color:var(--surface-2)] rounded-2xl p-4 border border-[color:var(--line)]">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[color:var(--ink-2)] mb-2.5 flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-[color:var(--brand)]" />
               <span>Recommended Emergency Facilities in {selectedState}</span>
             </h3>
             <div className="space-y-2">
               {stateData.facilities.slice(0, 3).map((fac, idx) => (
                 <div 
                   key={idx} 
-                  className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-stone-200 text-xs"
+                  className="flex items-center justify-between p-2.5 bg-[color:var(--surface)] rounded-xl border border-[color:var(--line)] text-xs"
                 >
                   <div>
-                    <span className="font-bold text-stone-900">{fac.name}</span>
-                    <div className="text-stone-500 text-[11px]">{fac.type} • {fac.city}</div>
+                    <span className="font-bold text-[color:var(--ink)]">{fac.name}</span>
+                    <div className="text-[color:var(--muted)] text-[11px]">{fac.type} • {fac.city}</div>
                   </div>
                   <a
                     href={`https://maps.google.com/?q=${encodeURIComponent(`${fac.name} ${fac.city} ${fac.state} Nigeria`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-emerald-700 hover:text-emerald-800 font-semibold text-[11px] underline"
+                    className="text-[color:var(--brand)] hover:text-[color:var(--brand-ink)] font-semibold text-[11px] underline"
                   >
                     View Map
                   </a>
@@ -200,8 +201,8 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 bg-stone-100 border-t border-stone-200 flex items-center justify-between gap-3 text-xs">
-          <span className="text-stone-500 italic">
+        <div className="p-4 bg-[color:var(--surface-3)] border-t border-[color:var(--line)] flex items-center justify-between gap-3 text-xs">
+          <span className="text-[color:var(--muted)] italic">
             Do not delay seeking emergency care for an AI response.
           </span>
           <button
