@@ -94,6 +94,12 @@ export interface LanguageStrings {
     whatsappHomeCancelled: string;
   };
   emergencyPrefix: string;
+  sectionHeadings: {
+    ways: string;
+    symptoms: string;
+    guides: string;
+    how: string;
+  };
   visuals: {
     guidesTitle: string;
     guidesSubtitle: string;
@@ -201,6 +207,12 @@ Tell me any sickness at all — **hot body, belle trouble, small pikin fever, or
       whatsappHomeCancelled: '❌ ALL HOME REMEDIES CANCELLED! RUSH GO HOSPITAL IMMEDIATELY!',
     },
     emergencyPrefix: 'EMERGENCY CHECK:',
+  sectionHeadings: {
+    ways: 'Three ways to get help',
+    symptoms: 'Wetin dey worry you today?',
+    guides: 'Picture guides for house care',
+    how: 'Wetin happen after you send am',
+  },
     symptoms: [
       {
         label: 'Hot body & body pain',
@@ -406,6 +418,12 @@ Tell me about **any illness or symptom** — whether fever, stomach pain, child 
       whatsappHomeCancelled: '❌ ALL HOME REMEDIES CANCELLED! RUSH TO HOSPITAL IMMEDIATELY!',
     },
     emergencyPrefix: 'EMERGENCY CHECK:',
+  sectionHeadings: {
+    ways: 'Three ways to get help',
+    symptoms: 'What are you feeling today?',
+    guides: 'Picture guides for home care',
+    how: 'What happens after you send',
+  },
     symptoms: [
       {
         label: 'High fever & body pain',
@@ -611,6 +629,12 @@ Fada min **kowace irin rashin lafiya** — kamar zazzabi, ciwon ciki, lafiyar ya
       whatsappHomeCancelled: '❌ AN SOKE MAGANIN GIDA! YI MAZA ZUWA ASIBITI NAN TAKE!',
     },
     emergencyPrefix: 'BINCIKEN GAGGAWA:',
+  sectionHeadings: {
+    ways: 'Hanyoyi uku na samun taimako',
+    symptoms: 'Me ke damun ka yau?',
+    guides: 'Hotunan jagora na kulawa a gida',
+    how: 'Me zai faru bayan ka aika',
+  },
     symptoms: [
       {
         label: 'Zazzabi da ciwon jiki',
@@ -816,6 +840,12 @@ Sọ **irú àìsàn èyíkéyìí** fún mi — yálà ibà, inú rírun, ìt�
       whatsappHomeCancelled: '❌ A TI FAGI LÉ OÒGÙN ILÉ! Ẹ SÁRÉ LỌ ILÉ-ÌWÒSÀN LẸ́SẸ̀KẸSẸ̀!',
     },
     emergencyPrefix: 'ÀṢÀRÒ PÀJÁWÌRÌ:',
+  sectionHeadings: {
+    ways: 'Ọ̀nà mẹ́ta láti rí ìrànlọ́wọ́',
+    symptoms: 'Kí ló ń ṣe ọ́ lónìí?',
+    guides: 'Àwòrán ìtọ́sọ́nà ìtọ́jú nílé',
+    how: 'Kí ló máa ṣẹlẹ̀ lẹ́yìn tí o bá fi ránṣẹ́',
+  },
     symptoms: [
       {
         label: 'Ara gbígbóná & ara ríro',
@@ -1021,6 +1051,12 @@ Gwa m **ụdị ọrịa ọ bụla** — dịka ahụ ọkụ, afọ mgbu, nlek
       whatsappHomeCancelled: '❌ A KAGBUOLA ỌGWỤ ỤLỌ! GBAA ỌSỌ GAA ỤLỌ ỌGWỤ UGBU A!',
     },
     emergencyPrefix: 'NYOCHA MBEREDE:',
+  sectionHeadings: {
+    ways: 'Ụzọ atọ isi nweta enyemaka',
+    symptoms: 'Gịnị na-eme gị taa?',
+    guides: 'Foto nduzi maka nlekọta ụlọ',
+    how: 'Gịnị ga-eme ma i zipu ya',
+  },
     symptoms: [
       {
         label: 'Ahụ ọkụ na ahụ mgbu',
