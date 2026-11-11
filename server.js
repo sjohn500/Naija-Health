@@ -1557,6 +1557,58 @@ app.get("/api/stockout-report", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   return res.json({ state: state || "all", reports });
 });
+var FACILITY_REPORT_TTL_MS = 90 * 24 * 60 * 60 * 1e3;
+var VALID_ISSUES = /* @__PURE__ */ new Set([
+  "wrong-details",
+  "closed",
+  "no-staff",
+  "phone-changed",
+  "wrong-lga",
+  "cannot-find"
+]);
+var facilityReports = /* @__PURE__ */ new Map();
+function pruneFacilityReports() {
+  const cutoff = Date.now() - FACILITY_REPORT_TTL_MS;
+  for (const [key, value] of facilityReports) {
+    if (value.lastReportedAt < cutoff) facilityReports.delete(key);
+  }
+}
+app.post("/api/facility-report", (req, res) => {
+  const facilityId = typeof req.body?.facilityId === "string" ? req.body.facilityId.slice(0, 160) : "";
+  const state = typeof req.body?.state === "string" ? req.body.state.slice(0, 60) : "";
+  const issue = typeof req.body?.issue === "string" ? req.body.issue : "";
+  if (!facilityId || !state || !VALID_ISSUES.has(issue)) {
+    return res.status(400).json({ error: "facilityId, state and a valid issue are required." });
+  }
+  pruneFacilityReports();
+  const existing = facilityReports.get(facilityId);
+  const issues = { ...existing?.issues || {} };
+  issues[issue] = (issues[issue] || 0) + 1;
+  const next = {
+    state,
+    count: (existing?.count || 0) + 1,
+    issues,
+    lastReportedAt: Date.now()
+  };
+  facilityReports.set(facilityId, next);
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ ok: true, facilityId, count: next.count });
+});
+app.get("/api/facility-report", (req, res) => {
+  pruneFacilityReports();
+  const state = typeof req.query.state === "string" ? req.query.state : "";
+  const reports = {};
+  for (const [facilityId, value] of facilityReports) {
+    if (state && value.state !== state) continue;
+    reports[facilityId] = {
+      count: value.count,
+      issues: value.issues,
+      lastReportedAt: new Date(value.lastReportedAt).toISOString()
+    };
+  }
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ state: state || "all", reports });
+});
 app.post("/api/tts", async (req, res) => {
   const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
   const targetLang = getTargetLanguage(req.body?.language);
