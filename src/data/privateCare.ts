@@ -12,7 +12,8 @@
  *     listing is labelled "call to confirm stock today".
  */
 import { SupportedLanguage, NigerianFacility } from '../types/triage';
-import { NIGERIAN_STATES_DATA } from './nigeriaHealthcareData';
+import { facilitiesForState } from './facilityDirectory';
+import { FACILITY_LEVEL_LABEL, FacilityCapability } from '../types/facility';
 
 export const PEP_WINDOW_HOURS = 72;
 
@@ -353,41 +354,42 @@ export function guideText(guide: OfflineGuide, lang: SupportedLanguage) {
 /* ART / PEP site derivation                                           */
 /* ------------------------------------------------------------------ */
 
-export type ArtCapability = 'ART' | 'PEP' | 'PMTCT' | 'VL testing';
+export type ArtCapability = Extract<FacilityCapability, 'ART' | 'PEP' | 'PMTCT' | 'VL testing'>;
 
 export interface ArtSite {
   id: string;
   name: string;
   city: string;
   state: string;
-  type: NigerianFacility['type'];
+  lga: string | null;
+  type: string;
   phone?: string;
   capabilities: ArtCapability[];
-  unfiltered?: boolean;
+  verification: 'unverified' | 'reported' | 'verified';
+  lastVerified: string | null;
 }
 
-/**
- * Capability is derived from facility TYPE, which is a defensible public-sector
- * inference — it is NOT a stock claim. The UI always says "call to confirm".
- */
-const CAPABILITIES_BY_TYPE: Record<NigerianFacility['type'], ArtCapability[]> = {
-  'Teaching Hospital': ['ART', 'PEP', 'PMTCT', 'VL testing'],
-  'Federal Medical Centre': ['ART', 'PEP', 'PMTCT', 'VL testing'],
-  'General Hospital': ['ART', 'PEP', 'PMTCT'],
-  'Specialist Hospital': ['ART', 'PEP'],
-};
+const ART_CAPABILITIES: ArtCapability[] = ['ART', 'PEP', 'PMTCT', 'VL testing'];
 
+/**
+ * Capability comes from the shared national directory, where it is derived from
+ * facility LEVEL — never a stock claim. Every surface that uses this must still
+ * say "call to confirm".
+ */
 export function artSitesForState(state: string): ArtSite[] {
-  const data = NIGERIAN_STATES_DATA[state];
-  if (!data) return [];
-  return data.facilities.map((f, i) => ({
-    id: `${state}-${i}`.replace(/\s+/g, '-').toLowerCase(),
+  return facilitiesForState(state).map((f) => ({
+    id: f.id,
     name: f.name,
     city: f.city,
-    state,
-    type: f.type,
-    phone: f.emergencyPhone,
-    capabilities: CAPABILITIES_BY_TYPE[f.type] || ['ART'],
+    state: f.state,
+    lga: f.lga,
+    type: FACILITY_LEVEL_LABEL[f.level],
+    phone: f.phone ?? undefined,
+    capabilities: f.capabilities.filter((c): c is ArtCapability =>
+      (ART_CAPABILITIES as string[]).includes(c)
+    ),
+    verification: f.verification,
+    lastVerified: f.lastVerified,
   }));
 }
 
