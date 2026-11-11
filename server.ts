@@ -450,6 +450,68 @@ app.get('/api/stockout-report', (req: Request, res: Response) => {
   return res.json({ state: state || 'all', reports });
 });
 
+// Anonymous facility correction reports (nationwide directory).
+// Stores only a facility key, an issue category, a count and a timestamp.
+const FACILITY_REPORT_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+const VALID_ISSUES = new Set([
+  'wrong-details',
+  'closed',
+  'no-staff',
+  'phone-changed',
+  'wrong-lga',
+  'cannot-find',
+]);
+const facilityReports = new Map<
+  string,
+  { state: string; count: number; issues: Record<string, number>; lastReportedAt: number }
+>();
+
+function pruneFacilityReports() {
+  const cutoff = Date.now() - FACILITY_REPORT_TTL_MS;
+  for (const [key, value] of facilityReports) {
+    if (value.lastReportedAt < cutoff) facilityReports.delete(key);
+  }
+}
+
+app.post('/api/facility-report', (req: Request, res: Response) => {
+  const facilityId = typeof req.body?.facilityId === 'string' ? req.body.facilityId.slice(0, 160) : '';
+  const state = typeof req.body?.state === 'string' ? req.body.state.slice(0, 60) : '';
+  const issue = typeof req.body?.issue === 'string' ? req.body.issue : '';
+  // `note` is accepted for future moderation tooling but never persisted.
+  if (!facilityId || !state || !VALID_ISSUES.has(issue)) {
+    return res.status(400).json({ error: 'facilityId, state and a valid issue are required.' });
+  }
+  pruneFacilityReports();
+  const existing = facilityReports.get(facilityId);
+  const issues = { ...(existing?.issues || {}) };
+  issues[issue] = (issues[issue] || 0) + 1;
+  const next = {
+    state,
+    count: (existing?.count || 0) + 1,
+    issues,
+    lastReportedAt: Date.now(),
+  };
+  facilityReports.set(facilityId, next);
+  res.setHeader('Cache-Control', 'no-store');
+  return res.json({ ok: true, facilityId, count: next.count });
+});
+
+app.get('/api/facility-report', (req: Request, res: Response) => {
+  pruneFacilityReports();
+  const state = typeof req.query.state === 'string' ? req.query.state : '';
+  const reports: Record<string, { count: number; issues: Record<string, number>; lastReportedAt: string }> = {};
+  for (const [facilityId, value] of facilityReports) {
+    if (state && value.state !== state) continue;
+    reports[facilityId] = {
+      count: value.count,
+      issues: value.issues,
+      lastReportedAt: new Date(value.lastReportedAt).toISOString(),
+    };
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  return res.json({ state: state || 'all', reports });
+});
+
 // Multilingual Text-to-Speech Endpoint using Gemini TTS (Pidgin, English, Hausa, Yoruba, Igbo)
 app.post('/api/tts', async (req: Request, res: Response) => {
   const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';

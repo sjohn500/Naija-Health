@@ -41,6 +41,7 @@ import { NIGERIAN_STATES_DATA } from './data/nigeriaHealthcareData';
 import { TRANSLATIONS } from './data/localization';
 import { VISUAL_ASSETS } from './data/visualAssets';
 import { privateUi } from './data/privateCare';
+import { useRevealOnScroll } from './lib/useRevealOnScroll';
 
 type ViewMode = 'clinic' | 'whatsapp';
 
@@ -484,6 +485,8 @@ export default function App() {
 
   const pui = privateUi(selectedLanguage);
 
+  useRevealOnScroll();
+
   const [composerShake, setComposerShake] = useState<boolean>(false);
 
   const guideCards = [
@@ -574,7 +577,7 @@ export default function App() {
         <section className="hero">
           <div className="wrap">
             <div className="hero-grid">
-              <div className="hero-copy">
+              <div className="hero-copy reveal" data-reveal>
                 <span className="eyebrow">
                   <span className="pulse" aria-hidden="true" />
                   {t.header.badge} · {selectedState} {t.header.stateSuffix}
@@ -875,7 +878,7 @@ export default function App() {
               </div>
 
               {/* Hero visual */}
-              <div className="hero-visual">
+              <div className="hero-visual reveal" data-reveal>
                 <figure className="figure">
                   <ResilientImage
                     src={VISUAL_ASSETS.welcome.src}
@@ -926,7 +929,7 @@ export default function App() {
         {/* ================= THREE WAYS TO GET HELP ================= */}
         <section className="sec" id="actions">
           <div className="wrap">
-            <div className="sec-head">
+            <div className="sec-head reveal" data-reveal>
               <div>
                 <div className="kicker">{t.header.badge}</div>
                 <h2>{t.sectionHeadings.ways}</h2>
@@ -934,7 +937,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="actions">
+            <div className="actions stagger" data-reveal>
               <button type="button" className="action" onClick={toggleVoiceRecording}>
                 <span className="ico" aria-hidden="true">
                   <Mic className="w-5 h-5" strokeWidth={2} />
@@ -985,7 +988,7 @@ export default function App() {
         {/* ================= SYMPTOMS ================= */}
         <section className="sec" id="symptoms">
           <div className="wrap">
-            <div className="sec-head">
+            <div className="sec-head reveal" data-reveal>
               <div>
                 <div className="kicker">{t.chat.commonSymptomsTitle}</div>
                 <h2>{t.sectionHeadings.symptoms}</h2>
@@ -993,7 +996,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="sym-grid">
+            <div className="sym-grid stagger" data-reveal>
               {t.symptoms.map((item, idx) => (
                 <button
                   key={`sym-${selectedLanguage}-${idx}`}
@@ -1018,7 +1021,7 @@ export default function App() {
         {/* ================= VISUAL CARE GUIDES ================= */}
         <section className="sec" id="guides">
           <div className="wrap">
-            <div className="sec-head">
+            <div className="sec-head reveal" data-reveal>
               <div>
                 <div className="kicker">{t.visuals.guidesTitle}</div>
                 <h2>{t.sectionHeadings.guides}</h2>
@@ -1034,7 +1037,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="guide-grid">
+            <div className="guide-grid stagger" data-reveal>
               {guideCards.map((card) => (
                 <button
                   key={card.id}
@@ -1094,14 +1097,14 @@ export default function App() {
         {/* ================= HOW IT WORKS ================= */}
         <section className="sec" id="how">
           <div className="wrap">
-            <div className="sec-head">
+            <div className="sec-head reveal" data-reveal>
               <div>
                 <div className="kicker">{t.contextBar.routingActive}</div>
                 <h2>{t.sectionHeadings.how}</h2>
               </div>
             </div>
 
-            <div className="steps">
+            <div className="steps stagger" data-reveal>
               {t.welcomeShowcase.pillars.map((pillar, i) => (
                 <div className="step" key={i}>
                   <span className="num">{i + 1}</span>
@@ -1115,7 +1118,7 @@ export default function App() {
               ))}
             </div>
 
-            <div className="emg-band" id="emergency">
+            <div className="emg-band reveal" id="emergency" data-reveal>
               <span className="ico" aria-hidden="true">
                 <AlertTriangle className="w-5 h-5" strokeWidth={2.1} />
               </span>

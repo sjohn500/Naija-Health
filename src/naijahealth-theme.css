@@ -811,3 +811,113 @@ html[data-theme="dark"] .ol-steps li .n{color:var(--brand)}
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
 }
+
+/* ============================================================
+   Motion
+   Everything here is additive polish: it must never be the only
+   thing that communicates state, and it all collapses under
+   prefers-reduced-motion (rule at the bottom of this file).
+   ============================================================ */
+
+@keyframes riseIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes popIn{0%{opacity:0;transform:scale(.94)}60%{transform:scale(1.012)}100%{opacity:1;transform:scale(1)}}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@keyframes toastIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes countUp{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* scroll reveal */
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .55s var(--ease), transform .55s var(--ease)}
+.reveal.is-visible{opacity:1;transform:none}
+
+.stagger > *{opacity:0}
+.stagger.is-visible > *{animation:riseIn .5s var(--ease) forwards}
+.stagger.is-visible > *:nth-child(1){animation-delay:0ms}
+.stagger.is-visible > *:nth-child(2){animation-delay:55ms}
+.stagger.is-visible > *:nth-child(3){animation-delay:110ms}
+.stagger.is-visible > *:nth-child(4){animation-delay:165ms}
+.stagger.is-visible > *:nth-child(5){animation-delay:220ms}
+.stagger.is-visible > *:nth-child(6){animation-delay:275ms}
+.stagger.is-visible > *:nth-child(7){animation-delay:330ms}
+.stagger.is-visible > *:nth-child(8){animation-delay:385ms}
+.stagger.is-visible > *:nth-child(n+9){animation-delay:420ms}
+
+/* press feedback: small, fast, tactile */
+.btn:active,.chip:active,.tag:active,.action:active,.sym:active,.guide-card:active,.row-card:active,.seg button:active{
+  transform:translateY(1px) scale(.994);
+}
+.btn,.chip,.tag,.icon-btn{will-change:transform}
+
+/* cards breathe on hover, but only where a pointer exists */
+@media (hover:hover){
+  .row-card{transition:border-color .18s var(--ease), background .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease)}
+  .row-card:hover{transform:translateY(-1px);box-shadow:var(--shadow-xs)}
+  .figure img{transition:transform .7s var(--ease)}
+  .figure:hover img{transform:scale(1.02)}
+}
+
+/* skeleton + async states */
+.skeleton{
+  background:linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%);
+  background-size:400% 100%;
+  animation:shimmer 1.4s ease-in-out infinite;
+  border-radius:var(--r-sm);
+}
+
+/* new messages / answers arrive with a slight pop instead of a hard cut */
+.answer,.bubble-user,.bubble-wa{animation:popIn .34s var(--ease) both}
+
+/* toast */
+.toast{
+  position:fixed;left:50%;bottom:24px;z-index:120;transform:translateX(-50%);
+  display:flex;align-items:center;gap:9px;
+  background:var(--ink);color:var(--bg);
+  padding:11px 16px;border-radius:var(--r-pill);
+  font-size:13px;font-weight:600;box-shadow:var(--shadow-lg);
+  animation:toastIn .28s var(--ease) both;
+}
+html[data-theme="dark"] .toast{background:var(--surface-3);color:var(--ink)}
+.toast svg{color:var(--brand)}
+
+/* facility level badge */
+.level-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 8px;border-radius:7px;
+  font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line);
+  white-space:nowrap;
+}
+.level-badge.is-teaching,.level-badge.is-fmc{background:var(--brand-soft);color:var(--brand-ink);border-color:transparent}
+html[data-theme="dark"] .level-badge.is-teaching,html[data-theme="dark"] .level-badge.is-fmc{color:var(--brand)}
+.level-badge.is-phc{background:var(--teal-soft);color:var(--teal);border-color:transparent}
+.level-badge.is-general{background:var(--blue-soft);color:var(--blue);border-color:transparent}
+.level-badge.is-specialist{background:var(--violet-soft);color:var(--violet);border-color:transparent}
+
+/* verification chips */
+.verify{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:650;padding:3px 8px;border-radius:var(--r-pill)}
+.verify.is-verified{background:var(--brand-soft);color:var(--brand-ink)}
+html[data-theme="dark"] .verify.is-verified{color:var(--brand)}
+.verify.is-unverified{background:var(--amber-soft);color:var(--amber)}
+.verify.is-reported{background:var(--danger-soft);color:var(--danger)}
+
+/* stat strip */
+.stat-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px}
+.stat b{display:block;font-size:17px;font-weight:700;letter-spacing:-.02em;animation:countUp .5s var(--ease) both}
+.stat span{display:block;font-size:10.5px;color:var(--muted);font-weight:600;margin-top:2px;line-height:1.3}
+@media (max-width:560px){ .stat-strip{grid-template-columns:1fr 1fr} }
+
+/* directory row layout */
+.facility{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-md);padding:14px;transition:border-color .18s var(--ease), box-shadow .18s var(--ease), transform .18s var(--ease)}
+.facility:hover{border-color:var(--line-strong);box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+.facility-head{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.facility-head h3{font-size:13.5px;font-weight:660;letter-spacing:-.015em;line-height:1.35}
+.facility-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px;font-size:11.5px;color:var(--muted)}
+.facility-meta .dot{width:3px;height:3px;border-radius:50%;background:var(--line-strong)}
+.facility-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.facility-missing{font-size:11px;color:var(--amber);font-weight:600;display:inline-flex;align-items:center;gap:4px}
+
+@media (prefers-reduced-motion:reduce){
+  .reveal,.stagger > *{opacity:1 !important;transform:none !important;animation:none !important;transition:none !important}
+  .answer,.bubble-user,.bubble-wa,.toast,.stat b{animation:none !important}
+  .skeleton{animation:none !important;background:var(--surface-2)}
+}
