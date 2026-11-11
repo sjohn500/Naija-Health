@@ -1,0 +1,191 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "User Account Anchor",
+      "description": "Root ownership anchor document proving authenticated user existence without storing PII.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "description": "Firebase Auth UID of the account owner"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set on initial account creation"
+        }
+      },
+      "required": ["uid", "createdAt"]
+    },
+    "UserPrivateProfile": {
+      "title": "User Private Contact Profile",
+      "description": "Isolated PII document holding optional contact phone number, email address, emergency contact, and localized care preferences.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "description": "Firebase Auth UID of the owner"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "User preferred display name"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 120,
+          "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          "description": "Contact email address"
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 24,
+          "pattern": "^$|^[+0-9][0-9 ()-]{6,19}$",
+          "description": "Optional Nigerian or international contact phone number"
+        },
+        "emergencyContactPhone": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 24,
+          "pattern": "^$|^[+0-9][0-9 ()-]{6,19}$",
+          "description": "Optional family or emergency contact phone number"
+        },
+        "preferredState": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Saved Nigerian state or FCT for localized hospital routing"
+        },
+        "preferredLanguage": {
+          "type": "string",
+          "enum": ["pidgin", "english", "hausa", "yoruba", "igbo"],
+          "description": "Saved UI and triage language preference"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the latest profile save"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "phone",
+        "emergencyContactPhone",
+        "preferredState",
+        "preferredLanguage",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SavedCheckup": {
+      "title": "Saved Triage Checkup",
+      "description": "User-initiated saved summary from public (non-private) symptom triage evaluations.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "description": "Firebase Auth UID of the owner"
+        },
+        "symptomSummary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400,
+          "description": "Short summary of the symptom query"
+        },
+        "language": {
+          "type": "string",
+          "enum": ["pidgin", "english", "hausa", "yoruba", "igbo"],
+          "description": "Language of the triage result"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Nigerian state used during hospital routing"
+        },
+        "urgencyLevel": {
+          "type": "string",
+          "enum": ["emergency", "urgent", "routine"],
+          "description": "Assessed clinical triage urgency"
+        },
+        "isRedFlag": {
+          "type": "boolean",
+          "description": "Whether emergency red-flag warning signs triggered"
+        },
+        "causesSummary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200,
+          "description": "Summary of possible causes explanation"
+        },
+        "nextStepSummary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200,
+          "description": "Summary of advised next step and hospital care guidance"
+        },
+        "recommendedFacilities": {
+          "type": "array",
+          "description": "Bounded list of up to 5 recommended public hospitals"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server creation timestamp"
+        }
+      },
+      "required": [
+        "uid",
+        "symptomSummary",
+        "language",
+        "state",
+        "urgencyLevel",
+        "isRedFlag",
+        "causesSummary",
+        "nextStepSummary",
+        "recommendedFacilities",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserAccount"
+      },
+      "description": "Root account ownership anchor per verified Firebase user."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": {
+        "$ref": "#/entities/UserPrivateProfile"
+      },
+      "description": "Owner-only PII subcollection storing 'profile' (email, phone, emergency contact, state, language). Strictly never shared or listed."
+    },
+    "/users/{userId}/checkups/{checkupId}": {
+      "schema": {
+        "$ref": "#/entities/SavedCheckup"
+      },
+      "description": "Owner-only saved public triage summaries. Private Care (HIV/PEP/ART) data is strictly never written to Firestore."
+    }
+  }
+}

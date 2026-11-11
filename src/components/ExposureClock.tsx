@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clock, PhoneCall, MapPin, AlertTriangle, Building2, ArrowRight } from 'lucide-react';
+import { Clock, PhoneCall, MapPin, AlertTriangle, Building2, ArrowRight, ExternalLink } from 'lucide-react';
 import { SupportedLanguage } from '../types/triage';
 import { PEP_WINDOW_HOURS, guideText, pepSitesForState, privateUi, OFFLINE_GUIDES } from '../data/privateCare';
 
@@ -56,7 +56,7 @@ export const ExposureClock: React.FC<ExposureClockProps> = ({ state, lang, onOpe
   const mm = Math.floor((hoursLeft - hh) * 60);
 
   return (
-    <div className="sheet" style={{ display: 'grid', gap: 14 }}>
+    <div style={{ display: 'grid', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <span
           className="ico"
@@ -75,8 +75,8 @@ export const ExposureClock: React.FC<ExposureClockProps> = ({ state, lang, onOpe
           <Clock className="w-4 h-4" strokeWidth={2.2} />
         </span>
         <div>
-          <h3 style={{ fontSize: 14, fontWeight: 660 }}>{ui.pepTitle}</h3>
-          <p style={{ fontSize: 12.5, color: 'var(--muted)' }}>{ui.pepSub}</p>
+          <h3 style={{ fontSize: 15, fontWeight: 700 }}>{ui.pepTitle}</h3>
+          <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{ui.pepSub}</p>
         </div>
       </div>
 
@@ -84,14 +84,15 @@ export const ExposureClock: React.FC<ExposureClockProps> = ({ state, lang, onOpe
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)' }}>
           {lang === 'pidgin' ? 'When the thing happen?' : 'When did it happen?'}
         </span>
-        <input
-          type="datetime-local"
-          value={exposureAt}
-          max={toLocalInputValue(new Date())}
-          onChange={(e) => setExposureAt(e.target.value)}
-          className="search-field"
-          style={{ height: 42, padding: '0 12px', fontWeight: 600 }}
-        />
+        <div className="search-field">
+          <input
+            type="datetime-local"
+            value={exposureAt}
+            max={toLocalInputValue(new Date())}
+            onChange={(e) => setExposureAt(e.target.value)}
+            style={{ fontWeight: 600 }}
+          />
+        </div>
       </label>
 
       <div
@@ -100,12 +101,12 @@ export const ExposureClock: React.FC<ExposureClockProps> = ({ state, lang, onOpe
       >
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <span
+            className="tnum"
             style={{
               fontSize: 30,
               fontWeight: 700,
               letterSpacing: '-.03em',
               color: dangerColor,
-              fontVariantNumeric: 'tabular-nums',
             }}
           >
             {expired ? '0h 00m' : `${hh}h ${String(mm).padStart(2, '0')}m`}
@@ -158,7 +159,7 @@ export const ExposureClock: React.FC<ExposureClockProps> = ({ state, lang, onOpe
       )}
 
       <div>
-        <b style={{ fontSize: 12.5, color: 'var(--ink)' }}>{copy.title}</b>
+        <b style={{ fontSize: 13, color: 'var(--ink)' }}>{copy.title}</b>
         <ol className="ol-steps" style={{ marginTop: 8 }}>
           {copy.steps.map((s, i) => (
             <li key={i}>
@@ -172,7 +173,7 @@ export const ExposureClock: React.FC<ExposureClockProps> = ({ state, lang, onOpe
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <Building2 className="w-3.5 h-3.5" strokeWidth={2.2} style={{ color: 'var(--brand)' }} />
-          <b style={{ fontSize: 12.5 }}>
+          <b style={{ fontSize: 13 }}>
             {lang === 'pidgin' ? 'PEP site near you' : 'PEP sites near you'} — {state}
           </b>
         </div>
@@ -184,43 +185,51 @@ export const ExposureClock: React.FC<ExposureClockProps> = ({ state, lang, onOpe
                 : 'No site in this list. Call 112 or go to the nearest general hospital.'}
             </p>
           )}
-          {sites.map((s) => (
-            <div className="row-card" key={s.id} style={{ cursor: 'default' }}>
-              <div className="rc-body">
-                <b>{s.name}</b>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <MapPin className="w-3 h-3" strokeWidth={2.2} />
-                  {s.city} · {s.type}
-                </span>
-                <div className="chip-row" style={{ marginTop: 6 }}>
-                  {s.capabilities.slice(0, 3).map((c) => (
-                    <span className="chip" key={c} style={{ fontSize: 10.5, padding: '3px 8px' }}>
-                      {c}
-                    </span>
-                  ))}
+          {sites.map((s) => {
+            const mapsUrl =
+              s.latitude != null && s.longitude != null
+                ? `https://maps.google.com/?q=${s.latitude},${s.longitude}`
+                : `https://maps.google.com/?q=${encodeURIComponent(
+                    `${s.name}, ${s.city}, ${s.state}, Nigeria`
+                  )}`;
+            return (
+              <div className="row-card" key={s.id} style={{ cursor: 'default' }}>
+                <div className="rc-body">
+                  <b>{s.name}</b>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <MapPin className="w-3 h-3" strokeWidth={2.2} />
+                    {s.lga ? `${s.lga} LGA · ` : ''}
+                    {s.city && s.city !== s.lga ? `${s.city} · ` : ''}
+                    {s.type}
+                  </span>
+                  <div className="facility-caps" style={{ marginTop: 4 }}>
+                    {s.capabilities.slice(0, 3).join(' · ')}
+                  </div>
                 </div>
+                {s.phone ? (
+                  <a className="btn btn-outline btn-sm" href={`tel:${s.phone.replace(/\s+/g, '')}`} aria-label={`Call ${s.name}`}>
+                    <PhoneCall className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  </a>
+                ) : (
+                  <a
+                    className="btn btn-soft btn-sm"
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Directions to ${s.name}`}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  </a>
+                )}
               </div>
-              {s.phone ? (
-                <a className="btn btn-outline btn-sm" href={`tel:${s.phone.replace(/\s+/g, '')}`}>
-                  <PhoneCall className="w-3.5 h-3.5" strokeWidth={2.2} />
-                </a>
-              ) : (
-                <span
-                  className="chip"
-                  style={{ fontSize: 10.5, color: 'var(--muted)', cursor: 'default' }}
-                  title="No direct line on file — call 112"
-                >
-                  {lang === 'pidgin' ? 'No line' : 'No line'}
-                </span>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
         <p style={{ marginTop: 8, fontSize: 11.5, color: 'var(--muted)' }}>{ui.confirmStock}</p>
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <a className="btn btn-danger btn-sm" href="tel:112" style={{ textDecoration: 'none' }}>
+        <a className="btn btn-danger btn-sm tnum" href="tel:112" style={{ textDecoration: 'none' }}>
           <PhoneCall className="w-3.5 h-3.5" strokeWidth={2.2} />
           112
         </a>

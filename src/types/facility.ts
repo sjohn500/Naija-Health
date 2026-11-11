@@ -77,6 +77,10 @@ export interface FacilityRecord {
   /** ISO date (YYYY-MM-DD) of last human/bulk verification, or null. */
   lastVerified: string | null;
   verification: VerificationState;
+  latitude?: number | null;
+  longitude?: number | null;
+  ownerType?: string | null;
+  ward?: string | null;
 }
 
 export type CorrectionIssue =

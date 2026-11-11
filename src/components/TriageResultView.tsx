@@ -12,18 +12,17 @@ import {
   PhoneCall,
   Loader2,
   BookOpen,
-  HeartPulse,
-  ShieldAlert,
 } from 'lucide-react';
 import { TriageResult, SupportedLanguage } from '../types/triage';
 import { TRANSLATIONS } from '../data/localization';
 import { ResilientImage } from './ResilientImage';
+import { BrandMark } from './BrandMark';
 import { resolveTriageVisual } from '../data/visualAssets';
 
 interface TriageResultViewProps {
   triage: TriageResult;
   onSelectClarifyingQuestion: (question: string) => void;
-  onOpenHospitals: () => void;
+  onOpenHospitals: (state?: string, lga?: string) => void;
   onOpenFirstAid?: (guideId: string) => void;
   /**
    * Private mode: no read-aloud (it would disclose in a shared room) and the
@@ -178,8 +177,6 @@ export const TriageResultView: React.FC<TriageResultViewProps> = ({
 
   const handleCopyWhatsApp = () => {
     if (discreet) {
-      // Deliberately carries no symptom, no condition, no guidance — only enough
-      // to find the place. Forwarding this can never out anyone.
       const safeText = `NaijaHealth AI — ${triage.detectedLocation || 'Nigeria'}\n${tc.browseHospitals}`;
       navigator.clipboard.writeText(safeText).then(() => {
         setCopied(true);
@@ -227,29 +224,20 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
   return (
     <div className="answer" aria-live="polite">
       <div className="answer-head">
-        <span
-          className="brand-mark"
-          style={{ width: 24, height: 24, borderRadius: 8 }}
-          aria-hidden="true"
-        >
-          <HeartPulse className="w-3.5 h-3.5" strokeWidth={2.4} />
-        </span>
+        <BrandMark size="xs" />
         <span className="who">NaijaHealth AI</span>
         {triage.detectedLocation && (
           <span className="time" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <MapPin className="w-3 h-3" strokeWidth={2.2} />
-            {triage.detectedLocation}
+            {triage.detectedLga ? `${triage.detectedLga} LGA, ${triage.detectedLocation}` : triage.detectedLocation}
           </span>
         )}
-        <span className={`sev ${sevClass}`}>
-          <i aria-hidden="true" />
-          {severityLabel}
-        </span>
+        <span className={`sev ${sevClass}`}>{severityLabel}</span>
       </div>
 
       {triage.empathyNote && (
         <p style={{ color: 'var(--brand)', fontWeight: 600, fontSize: 13.5, marginBottom: 10 }}>
-          💚 {triage.empathyNote}
+          {triage.empathyNote}
         </p>
       )}
 
@@ -259,13 +247,11 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
             <AlertTriangle className="w-4 h-4" strokeWidth={2.2} />
             {tc.immediateAttention}
           </h3>
-          <p style={{ color: 'var(--ink-2)' }}>
-            {triage.emergencyWarning || tc.defaultEmergencyWarning}
-          </p>
+          <p>{triage.emergencyWarning || tc.defaultEmergencyWarning}</p>
           <a
             href="tel:112"
             className="btn btn-danger btn-sm"
-            style={{ marginTop: 10, textDecoration: 'none' }}
+            style={{ marginTop: 10 }}
           >
             <PhoneCall className="w-3.5 h-3.5" strokeWidth={2.2} />
             {tc.call112Free}
@@ -287,15 +273,12 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
           <li>
             <span className="n">2</span>
             <div>
-              <b style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 650 }}>
-                {tc.homeTitle}
-              </b>
-              {triage.isRedFlag && (
-                <span className="sev is-danger" style={{ marginLeft: 8, marginTop: 0 }}>
-                  <i aria-hidden="true" />
-                  {tc.bypassedBadge}
-                </span>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <b style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 650 }}>
+                  {tc.homeTitle}
+                </b>
+                {triage.isRedFlag && <span className="sev is-danger">{tc.bypassedBadge}</span>}
+              </div>
               <p
                 style={{
                   whiteSpace: 'pre-line',
@@ -319,10 +302,15 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
               {triage.recommendedFacilities && triage.recommendedFacilities.length > 0 && (
                 <div className="chip-row" style={{ marginTop: 8 }}>
                   {triage.recommendedFacilities.map((fac, i) => (
-                    <span className="chip" key={i}>
+                    <button
+                      type="button"
+                      className="chip"
+                      key={i}
+                      onClick={() => onOpenHospitals(triage.detectedLocation, triage.detectedLga)}
+                    >
                       <Building2 className="w-3 h-3" strokeWidth={2.2} />
                       {fac}
-                    </span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -331,31 +319,37 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
         </ol>
       </div>
 
-      {/* Contextual Nigerian photo guide */}
-      <div className="row-card" style={{ marginTop: 14, cursor: 'default' }}>
+      {/* Contextual guide preview */}
+      <div className="row-card" style={{ marginTop: 12, cursor: 'default' }}>
         <ResilientImage
           src={visualMeta.src}
           alt={visualCopy.title}
           variant={visualMeta.key}
-          className="w-20 shrink-0 rounded-lg overflow-hidden"
+          className="w-20 h-16 shrink-0 rounded-lg overflow-hidden"
           imgClassName="w-full h-full object-cover object-[50%_20%]"
         />
         <div className="rc-body">
           <b>{visualCopy.title}</b>
-          <span style={{ WebkitLineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          <span
+            style={{
+              WebkitLineClamp: 2,
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
             {visualCopy.caption}
           </span>
           {visualMeta.key === 'hospital' ? (
             <button
               type="button"
-              onClick={onOpenHospitals}
-              className="go"
+              onClick={() => onOpenHospitals(triage.detectedLocation, triage.detectedLga)}
               style={{
-                marginTop: 6,
+                marginTop: 5,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: 620,
                 color: 'var(--brand)',
               }}
@@ -368,13 +362,12 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
             <button
               type="button"
               onClick={() => onOpenFirstAid(visualMeta.linkedGuideId!)}
-              className="go"
               style={{
-                marginTop: 6,
+                marginTop: 5,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: 620,
                 color: 'var(--brand)',
               }}
@@ -389,7 +382,7 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
 
       {/* Clarifying questions */}
       {triage.clarifyingQuestions && triage.clarifyingQuestions.length > 0 && (
-        <div className="sheet is-warn" style={{ marginTop: 12 }}>
+        <div className="sheet is-warn" style={{ marginTop: 10 }}>
           <h3 style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--amber)' }}>
             <HelpCircle className="w-3.5 h-3.5" strokeWidth={2.2} />
             {tc.clarifyingTitle}
@@ -412,32 +405,36 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
 
       <div className="answer-actions">
         {!discreet && (
-        <button
-          type="button"
-          onClick={handleToggleSpeech}
-          className={`btn btn-sm ${isPlayingAudio ? 'btn-danger' : 'btn-primary'}`}
-          title={tc.listen}
-        >
-          {isLoadingAudio ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              {tc.preparingAudio}
-            </>
-          ) : isPlayingAudio ? (
-            <>
-              <VolumeX className="w-3.5 h-3.5" strokeWidth={2.2} />
-              {tc.stopAudio}
-            </>
-          ) : (
-            <>
-              <Volume2 className="w-3.5 h-3.5" strokeWidth={2.2} />
-              {tc.listen}
-            </>
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={handleToggleSpeech}
+            className={`btn btn-sm ${isPlayingAudio ? 'btn-danger' : 'btn-primary'}`}
+            title={tc.listen}
+          >
+            {isLoadingAudio ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {tc.preparingAudio}
+              </>
+            ) : isPlayingAudio ? (
+              <>
+                <VolumeX className="w-3.5 h-3.5" strokeWidth={2.2} />
+                {tc.stopAudio}
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-3.5 h-3.5" strokeWidth={2.2} />
+                {tc.listen}
+              </>
+            )}
+          </button>
         )}
 
-        <button type="button" onClick={onOpenHospitals} className="btn btn-outline btn-sm">
+        <button
+          type="button"
+          onClick={() => onOpenHospitals(triage.detectedLocation, triage.detectedLga)}
+          className="btn btn-outline btn-sm"
+        >
           <Building2 className="w-3.5 h-3.5" strokeWidth={2.2} />
           {tc.browseHospitals}
         </button>

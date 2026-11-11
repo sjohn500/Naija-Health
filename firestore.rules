@@ -1,0 +1,221 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
+    }
+
+    function isOwner(userId) {
+      return isEmailVerified() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    function parentUserReady(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId))
+        || existsAfter(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function isValidEmail(email) {
+      return email is string
+        && email.size() >= 3
+        && email.size() <= 120
+        && email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+
+    function isValidPhone(phone) {
+      return phone is string
+        && phone.size() <= 24
+        && phone.matches('^$|^[+0-9][0-9 ()-]{6,19}$');
+    }
+
+    function isSupportedLanguage(lang) {
+      return lang is string && lang in ['pidgin', 'english', 'hausa', 'yoruba', 'igbo'];
+    }
+
+    function isUrgencyLevel(level) {
+      return level is string && level in ['emergency', 'urgent', 'routine'];
+    }
+
+    function isValidUserAccount(data, userId) {
+      return data.keys().hasAll(['uid', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPrivateProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid',
+          'displayName',
+          'email',
+          'phone',
+          'emergencyContactPhone',
+          'preferredState',
+          'preferredLanguage',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'email',
+          'phone',
+          'emergencyContactPhone',
+          'preferredState',
+          'preferredLanguage',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 80
+        && isValidEmail(data.email)
+        && isValidPhone(data.phone)
+        && isValidPhone(data.emergencyContactPhone)
+        && data.preferredState is string
+        && data.preferredState.size() >= 2
+        && data.preferredState.size() <= 40
+        && isSupportedLanguage(data.preferredLanguage)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSavedCheckup(data, userId) {
+      return data.keys().hasAll([
+          'uid',
+          'symptomSummary',
+          'language',
+          'state',
+          'urgencyLevel',
+          'isRedFlag',
+          'causesSummary',
+          'nextStepSummary',
+          'recommendedFacilities',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'symptomSummary',
+          'language',
+          'state',
+          'urgencyLevel',
+          'isRedFlag',
+          'causesSummary',
+          'nextStepSummary',
+          'recommendedFacilities',
+          'createdAt'
+        ])
+        && isValidId(data.uid)
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.symptomSummary is string
+        && data.symptomSummary.size() >= 1
+        && data.symptomSummary.size() <= 400
+        && isSupportedLanguage(data.language)
+        && data.state is string
+        && data.state.size() >= 2
+        && data.state.size() <= 40
+        && isUrgencyLevel(data.urgencyLevel)
+        && data.isRedFlag is bool
+        && data.causesSummary is string
+        && data.causesSummary.size() >= 1
+        && data.causesSummary.size() <= 1200
+        && data.nextStepSummary is string
+        && data.nextStepSummary.size() >= 1
+        && data.nextStepSummary.size() <= 1200
+        && data.recommendedFacilities is list
+        && data.recommendedFacilities.size() <= 5
+        && (data.recommendedFacilities.size() == 0
+          || (data.recommendedFacilities[0] is string
+            && data.recommendedFacilities[0].size() <= 120))
+        && data.createdAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && (resource == null || existing().uid == request.auth.uid);
+      allow list: if false;
+      allow create: if isOwner(userId)
+        && isValidUserAccount(incoming(), userId)
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if false;
+
+      match /private/{docId} {
+        allow get: if isOwner(userId)
+          && docId == 'profile'
+          && (resource == null || existing().uid == request.auth.uid);
+        allow list: if false;
+        allow create: if isOwner(userId)
+          && docId == 'profile'
+          && isValidPrivateProfile(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentUserReady(userId);
+        allow update: if isOwner(userId)
+          && docId == 'profile'
+          && isValidPrivateProfile(incoming(), userId)
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName',
+            'email',
+            'phone',
+            'emergencyContactPhone',
+            'preferredState',
+            'preferredLanguage',
+            'updatedAt'
+          ])
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow delete: if isOwner(userId)
+          && docId == 'profile'
+          && resource != null
+          && existing().uid == request.auth.uid;
+      }
+
+      match /checkups/{checkupId} {
+        allow get: if isOwner(userId)
+          && isValidId(checkupId)
+          && (resource == null || existing().uid == request.auth.uid);
+        allow list: if isEmailVerified()
+          && request.auth.uid == userId
+          && existing().uid == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(checkupId)
+          && isValidSavedCheckup(incoming(), userId)
+          && incoming().createdAt == request.time
+          && parentUserReady(userId);
+        allow update: if false;
+        allow delete: if isOwner(userId)
+          && isValidId(checkupId)
+          && resource != null
+          && existing().uid == request.auth.uid;
+      }
+    }
+  }
+}

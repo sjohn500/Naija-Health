@@ -27,34 +27,34 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
     switch (variant) {
       case 'ors':
         return {
-          gradient: 'from-sky-50 via-emerald-50 to-teal-100',
-          icon: <Droplet className="w-8 h-8 text-sky-700" />,
+          tint: 'var(--blue-soft)',
+          icon: <Droplet className="w-7 h-7" style={{ color: 'var(--blue)' }} />,
         };
       case 'sponging':
         return {
-          gradient: 'from-amber-50 via-stone-50 to-emerald-50',
-          icon: <Thermometer className="w-8 h-8 text-amber-700" />,
+          tint: 'var(--amber-soft)',
+          icon: <Thermometer className="w-7 h-7" style={{ color: 'var(--amber)' }} />,
         };
       case 'choking':
         return {
-          gradient: 'from-emerald-50 via-teal-50 to-stone-100',
-          icon: <ShieldAlert className="w-8 h-8 text-emerald-700" />,
+          tint: 'var(--teal-soft)',
+          icon: <ShieldAlert className="w-7 h-7" style={{ color: 'var(--teal)' }} />,
         };
       case 'pregnancy':
         return {
-          gradient: 'from-rose-50 via-emerald-50 to-stone-100',
-          icon: <Baby className="w-8 h-8 text-rose-700" />,
+          tint: 'var(--rose-soft)',
+          icon: <Baby className="w-7 h-7" style={{ color: 'var(--rose)' }} />,
         };
       case 'hospital':
         return {
-          gradient: 'from-emerald-900 via-[#05472A] to-teal-900 text-white',
-          icon: <Building2 className="w-8 h-8 text-emerald-200" />,
+          tint: 'var(--danger-soft)',
+          icon: <Building2 className="w-7 h-7" style={{ color: 'var(--danger)' }} />,
         };
       case 'welcome':
       default:
         return {
-          gradient: 'from-emerald-50 via-[#F4F9F6] to-stone-100',
-          icon: <HeartPulse className="w-8 h-8 text-[#008751]" />,
+          tint: 'var(--brand-soft)',
+          icon: <HeartPulse className="w-7 h-7" style={{ color: 'var(--brand)' }} />,
         };
     }
   };
@@ -65,12 +65,22 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
       <div
         role="img"
         aria-label={alt}
-        className={`relative flex flex-col items-center justify-center bg-gradient-to-br ${fallback.gradient} p-4 text-center ${className}`}
+        className={`relative flex flex-col items-center justify-center p-4 text-center ${className}`}
+        style={{ background: fallback.tint }}
       >
-        <div className="p-3 rounded-2xl bg-white/80 backdrop-blur-xs border border-stone-200/70 shadow-2xs mb-2">
+        <div
+          className="p-2.5 rounded-xl mb-2"
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--line)',
+          }}
+        >
           {fallback.icon}
         </div>
-        <span className="text-xs font-semibold text-stone-700 max-w-[22ch] line-clamp-2">
+        <span
+          className="text-xs font-semibold max-w-[22ch] line-clamp-2"
+          style={{ color: 'var(--ink-2)' }}
+        >
           {alt}
         </span>
       </div>
@@ -78,9 +88,15 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
   }
 
   return (
-    <div className={`relative overflow-hidden bg-stone-100 ${className}`}>
+    <div
+      className={`relative overflow-hidden ${className}`}
+      style={{ background: 'var(--surface-2)' }}
+    >
       {!isLoaded && (
-        <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-stone-100 via-stone-200/60 to-stone-100" />
+        <div
+          className="absolute inset-0 skeleton"
+          aria-hidden="true"
+        />
       )}
       <img
         src={src}

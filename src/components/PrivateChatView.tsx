@@ -11,7 +11,6 @@ import {
   ArrowRight,
   Clock,
   ShieldCheck,
-  Sparkles,
   Info,
 } from 'lucide-react';
 import { SupportedLanguage, TriageResult } from '../types/triage';
@@ -29,6 +28,8 @@ import {
 } from '../data/privateCare';
 import { TriageResultView } from './TriageResultView';
 import { ExposureClock } from './ExposureClock';
+import { BrandMark } from './BrandMark';
+import { useModalBehavior } from '../lib/useModalBehavior';
 
 interface PrivateChatViewProps {
   isOpen: boolean;
@@ -67,7 +68,16 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
-  // Wipe everything whenever the sheet closes — including on unmount.
+  const wipe = () => {
+    setEntries([]);
+    setInput('');
+    setOffline(false);
+    setView('chat');
+    onClose();
+  };
+
+  useModalBehavior(isOpen, wipe);
+
   useEffect(() => {
     if (!isOpen) {
       setEntries([]);
@@ -102,8 +112,6 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
     setInput('');
     setOffline(false);
 
-    // Six core topics are answered on the device. No network, no model, no
-    // chance of a stockout question being answered with "rest and drink water".
     const topic = matchPrivateTopic(text);
     if (topic) {
       const note = LOCAL_ANSWER_NOTE[lang === 'pidgin' ? 'pidgin' : 'en'];
@@ -195,7 +203,6 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
           if (!res.ok) throw new Error('transcribe failed');
           const data = await res.json();
           if (data?.text) {
-            // Never auto-send in private mode: the user reads it before it leaves the phone.
             setInput((prev) => (prev ? `${prev} ${data.text}` : data.text));
           }
         } catch {
@@ -222,14 +229,6 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
     setIsRecording(false);
   };
 
-  const wipe = () => {
-    setEntries([]);
-    setInput('');
-    setOffline(false);
-    setView('chat');
-    onClose();
-  };
-
   if (!isOpen) return null;
 
   const renderGuide = (guideId: string) => {
@@ -239,13 +238,11 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
     return (
       <div className="answer" key={guideId}>
         <div className="answer-head">
-          <span className="brand-mark" style={{ width: 24, height: 24, borderRadius: 8 }} aria-hidden="true">
-            <ShieldCheck className="w-3.5 h-3.5" strokeWidth={2.4} />
-          </span>
+          <BrandMark size="xs" />
           <span className="who">{copy.title}</span>
           <span className="sev is-ok">
-            <i aria-hidden="true" />
-            {lang === 'pidgin' ? 'Saved guide' : 'Saved guide'}
+            <ShieldCheck className="w-3 h-3" strokeWidth={2.4} />
+            {lang === 'pidgin' ? 'Guide on phone' : 'Saved guide'}
           </span>
         </div>
         <p>{copy.body}</p>
@@ -259,8 +256,8 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
         </ol>
         {!offlineTextAvailable(lang) && (
           <p className="answer-note">
-            <Info className="w-3 h-3 inline" strokeWidth={2.4} /> Offline guide is in English for this
-            language. Ask below to get the answer in your language.
+            <Info className="w-3 h-3 inline mr-1" strokeWidth={2.4} /> Offline guide is in English for this
+            language. Ask below to get an answer in your language.
           </p>
         )}
       </div>
@@ -268,10 +265,10 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={wipe}>
       <div
         className="modal-card"
-        style={{ maxWidth: 720, maxHeight: '94vh' }}
+        style={{ maxWidth: 720 }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="private-chat-title"
@@ -291,20 +288,27 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
         </div>
 
         <div className="modal-body" style={{ gap: 12 }}>
-          <div
-            className="sheet"
-            style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'var(--surface-2)' }}
-          >
+          <div className="sheet" style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
             <Lock
-              className="w-3.5 h-3.5"
+              className="w-3.5 h-3.5 shrink-0"
               strokeWidth={2.2}
-              style={{ color: 'var(--brand)', marginTop: 3, flex: 'none' }}
+              style={{ color: 'var(--brand)', marginTop: 3 }}
             />
-            <p style={{ marginTop: 0, fontSize: 11.5, color: 'var(--muted)' }}>{ui.disclosure}</p>
+            <p style={{ marginTop: 0, fontSize: 12, color: 'var(--muted)' }}>{ui.disclosure}</p>
           </div>
 
           {view === 'clock' ? (
-            <ExposureClock state={state} lang={lang} onOpenArt={onOpenArt} />
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                style={{ alignSelf: 'flex-start' }}
+                onClick={() => setView('chat')}
+              >
+                ← {ui.title}
+              </button>
+              <ExposureClock state={state} lang={lang} onOpenArt={onOpenArt} />
+            </>
           ) : (
             <>
               <div>
@@ -318,7 +322,7 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
                   >
                     <Clock className="w-3 h-3" strokeWidth={2.4} style={{ color: 'var(--danger)' }} />
                     {ui.pepTitle}
-                    <span style={{ fontSize: 10, color: 'var(--danger)', fontWeight: 700 }}>
+                    <span className="tnum" style={{ fontSize: 10.5, color: 'var(--danger)', fontWeight: 700 }}>
                       {PEP_WINDOW_HOURS}h
                     </span>
                   </button>
@@ -345,7 +349,7 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
                     }
                     if (entry.role === 'note') {
                       return (
-                        <p className="answer-note" key={entry.id} style={{ borderTop: 0, marginTop: 0 }}>
+                        <p className="answer-note" key={entry.id} style={{ borderTop: 0, marginTop: 0, paddingTop: 0 }}>
                           {entry.text}
                         </p>
                       );
@@ -360,21 +364,17 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
                         discreet
                         onSelectClarifyingQuestion={(q) => askAi(q)}
                         onOpenHospitals={onOpenArt}
-                        onOpenFirstAid={() => {
-                          /* first-aid modals stay in the public surface */
-                        }}
                       />
                     );
                   })}
+                  <div ref={endRef} />
                 </div>
               )}
 
               {isBusy && (
                 <div className="answer">
                   <div className="answer-head">
-                    <span className="brand-mark" style={{ width: 24, height: 24, borderRadius: 8 }} aria-hidden="true">
-                      <Sparkles className="w-3.5 h-3.5" strokeWidth={2.4} />
-                    </span>
+                    <BrandMark size="xs" />
                     <span className="who">{ui.looking}</span>
                   </div>
                   <div className="typing" aria-label={ui.looking}>
@@ -385,73 +385,66 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
                 </div>
               )}
 
-              {offline && (
-                <p className="answer-note" style={{ borderTop: 0 }}>
-                  {ui.offline}
-                </p>
-              )}
-            </>
-          )}
+              {offline && <p className="answer-note">{ui.offline}</p>}
 
-          {view === 'chat' && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!input.trim() || isBusy) return;
-                askAi(input);
-              }}
-              style={{ display: 'grid', gap: 8 }}
-            >
-              <textarea
-                className="search-field"
-                style={{ minHeight: 62, height: 'auto', padding: '10px 12px', resize: 'none', font: 'inherit' }}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (input.trim() && !isBusy) askAi(input);
-                  }
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!input.trim() || isBusy) return;
+                  askAi(input);
                 }}
-                placeholder={ui.placeholder}
-                aria-label={ui.placeholder}
-                disabled={isBusy || isTranscribing}
-              />
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
-                  onClick={isRecording ? stopRecording : startRecording}
-                  disabled={isTranscribing || isBusy}
-                  aria-pressed={isRecording}
-                >
-                  {isTranscribing ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : isRecording ? (
-                    <MicOff className="w-3.5 h-3.5" strokeWidth={2.2} style={{ color: 'var(--danger)' }} />
-                  ) : (
-                    <Mic className="w-3.5 h-3.5" strokeWidth={2.2} />
-                  )}
-                  {isRecording
-                    ? ui.listening
-                    : isTranscribing
-                    ? lang === 'pidgin'
-                      ? 'I dey write wetin you talk…'
-                      : 'Writing what you said…'
-                    : ui.speak}
-                </button>
+                style={{ display: 'grid', gap: 8 }}
+              >
+                <textarea
+                  className="field-textarea"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (input.trim() && !isBusy) askAi(input);
+                    }
+                  }}
+                  placeholder={ui.placeholder}
+                  aria-label={ui.placeholder}
+                  disabled={isBusy || isTranscribing}
+                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    disabled={isTranscribing || isBusy}
+                    aria-pressed={isRecording}
+                  >
+                    {isTranscribing ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : isRecording ? (
+                      <MicOff className="w-3.5 h-3.5" strokeWidth={2.2} style={{ color: 'var(--danger)' }} />
+                    ) : (
+                      <Mic className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    )}
+                    {isRecording
+                      ? ui.listening
+                      : isTranscribing
+                      ? lang === 'pidgin'
+                        ? 'I dey write wetin you talk…'
+                        : 'Writing what you said…'
+                      : ui.speak}
+                  </button>
 
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-sm"
-                  style={{ marginLeft: 'auto', height: 38 }}
-                  disabled={!input.trim() || isBusy || isTranscribing}
-                >
-                  {ui.send}
-                  <Send className="w-3.5 h-3.5" strokeWidth={2.2} />
-                </button>
-              </div>
-            </form>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                    style={{ marginLeft: 'auto' }}
+                    disabled={!input.trim() || isBusy || isTranscribing}
+                  >
+                    {ui.send}
+                    <Send className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  </button>
+                </div>
+              </form>
+            </>
           )}
 
           <div className="sheet is-danger">
@@ -467,7 +460,7 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
               ))}
             </ul>
             <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              <a className="btn btn-danger btn-sm" href="tel:112" style={{ textDecoration: 'none' }}>
+              <a className="btn btn-danger btn-sm tnum" href="tel:112">
                 112
               </a>
               <button type="button" className="btn btn-outline btn-sm" onClick={onOpenArt}>
@@ -483,7 +476,7 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({
             </div>
           </div>
 
-          <p style={{ fontSize: 11, color: 'var(--muted)' }}>{ui.notDiagnosis}</p>
+          <p style={{ fontSize: 11.5, color: 'var(--muted)' }}>{ui.notDiagnosis}</p>
         </div>
       </div>
     </div>

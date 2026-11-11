@@ -8,20 +8,19 @@ import {
   Flag,
   Check,
   Loader2,
-  AlertTriangle,
+  ExternalLink,
   X,
   ChevronDown,
+  Info,
 } from 'lucide-react';
 import { NIGERIAN_STATES_DATA } from '../data/nigeriaHealthcareData';
 import {
-  directoryCoverage,
   formatHours,
+  lgaFacilityCounts,
   lgasForState,
   searchFacilities,
-  daysSince,
 } from '../data/facilityDirectory';
 import {
-  ALL_CAPABILITIES,
   CORRECTION_ISSUES,
   CorrectionIssue,
   FACILITY_LEVELS,
@@ -31,37 +30,13 @@ import {
   FacilityRecord,
 } from '../types/facility';
 import { SupportedLanguage } from '../types/triage';
-import { Reveal } from './Reveal';
+import { useModalBehavior } from '../lib/useModalBehavior';
 
 interface FacilityDirectoryProps {
   defaultState: string;
+  defaultLga?: string;
   lang?: SupportedLanguage;
 }
-
-const CountUp: React.FC<{ value: number }> = ({ value }) => {
-  const [shown, setShown] = useState(0);
-
-  useEffect(() => {
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) {
-      setShown(value);
-      return;
-    }
-    let raf = 0;
-    const start = performance.now();
-    const duration = 650;
-    const tick = (now: number) => {
-      const progress = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setShown(Math.round(value * eased));
-      if (progress < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [value]);
-
-  return <>{shown}</>;
-};
 
 const LEVEL_CLASS: Record<FacilityLevel, string> = {
   PHC: 'is-phc',
@@ -71,19 +46,174 @@ const LEVEL_CLASS: Record<FacilityLevel, string> = {
   Specialist: 'is-specialist',
 };
 
+const QUICK_CAPABILITIES: FacilityCapability[] = ['Emergency', 'Maternity', 'Paediatrics', 'ART', 'PEP'];
+const INITIAL_STATE_BATCH = 24;
+
+const DIR_COPY: Record<
+  SupportedLanguage,
+  {
+    searchPlaceholder: string;
+    allLevels: string;
+    allLgAs: string;
+    notice: (count: number, state: string, lgaCount: number, selectedLga: string) => string;
+    showAll: (total: number, lgaCount: number) => string;
+    emptyState: (state: string, selectedLga: string) => string;
+    clearFilters: string;
+    directions: string;
+    emergency112: string;
+    reportIssue: string;
+    recentReports: (n: number) => string;
+    reportTitle: string;
+    reportPlaceholder: string;
+    reportPrivacy: string;
+    reportThanks: string;
+    sendReport: string;
+    toastSaved: string;
+  }
+> = {
+  pidgin: {
+    searchPlaceholder: 'Search hospital, LGA, ward or area...',
+    allLevels: 'All levels',
+    allLgAs: 'All LGAs',
+    notice: (count, state, lgaCount, lga) =>
+      lga
+        ? `${count} public ${count === 1 ? 'facility' : 'facilities'} for ${lga} LGA, ${state}. Call ahead or dial 112 to confirm hours and doctors on seat.`
+        : `${count} public facilities across ${lgaCount} LGAs inside ${state}. Pick your LGA above or filter by hospital level.`,
+    showAll: (total, lgaCount) => `Show all ${total} facilities across ${lgaCount} LGAs`,
+    emptyState: (state, lga) =>
+      lga
+        ? `No facility match that filter inside ${lga} LGA, ${state}.`
+        : `No facility match that filter inside ${state} State.`,
+    clearFilters: 'Clear filters',
+    directions: 'Directions',
+    emergency112: 'Call 112',
+    reportIssue: 'Report update',
+    recentReports: (n) => `${n} user ${n === 1 ? 'report' : 'reports'} submitted`,
+    reportTitle: 'Report facility update',
+    reportPlaceholder: 'Add helpful note (optional)',
+    reportPrivacy: 'Anonymous update only — no name or phone number is stored.',
+    reportThanks: 'Thank you — update recorded.',
+    sendReport: 'Send report',
+    toastSaved: 'Facility update recorded. Thank you.',
+  },
+  english: {
+    searchPlaceholder: 'Search by hospital, LGA, ward or area...',
+    allLevels: 'All levels',
+    allLgAs: 'All LGAs',
+    notice: (count, state, lgaCount, lga) =>
+      lga
+        ? `Showing ${count} public ${count === 1 ? 'facility' : 'facilities'} in ${lga} LGA, ${state}. Call ahead or dial 112 to confirm hours and staffing.`
+        : `Showing ${count} public facilities across all ${lgaCount} LGAs in ${state}. Select your LGA above or filter by level below.`,
+    showAll: (total, lgaCount) => `Show all ${total} facilities across ${lgaCount} LGAs`,
+    emptyState: (state, lga) =>
+      lga
+        ? `No facilities match those filters in ${lga} LGA, ${state}.`
+        : `No facilities match those filters in ${state} State.`,
+    clearFilters: 'Clear filters',
+    directions: 'Directions',
+    emergency112: 'Call 112',
+    reportIssue: 'Report update',
+    recentReports: (n) => `${n} recent user ${n === 1 ? 'update' : 'updates'}`,
+    reportTitle: 'Report facility update',
+    reportPlaceholder: 'Optional details (max 300 chars)',
+    reportPrivacy: 'Anonymous report only — no name or phone number is stored.',
+    reportThanks: 'Thank you — update recorded.',
+    sendReport: 'Send report',
+    toastSaved: 'Update recorded. Thank you.',
+  },
+  hausa: {
+    searchPlaceholder: 'Nemo asibiti, karamar hukuma ko gari...',
+    allLevels: 'Duk matakai',
+    allLgAs: 'Duk kananan hukumomi',
+    notice: (count, state, lgaCount, lga) =>
+      lga
+        ? `Asibitoci da cibiyoyin lafiya ${count} a karamar hukumar ${lga}, jihar ${state}. A kira kafin tafiya ko 112.`
+        : `Cibiyoyin lafiya ${count} a duk kananan hukumomi ${lgaCount} na jihar ${state}. Zabi karamar hukumarka a sama.`,
+    showAll: (total, lgaCount) => `Nuna dukkan cibiyoyi ${total} a kananan hukumomi ${lgaCount}`,
+    emptyState: (state, lga) =>
+      lga
+        ? `Babu asibitin da ya dace da bincikenka a ${lga}, jihar ${state}.`
+        : `Babu asibitin da ya dace da bincikenka a jihar ${state}.`,
+    clearFilters: 'Share tacewa',
+    directions: 'Taswira',
+    emergency112: 'Kira 112',
+    reportIssue: 'Gyara bayani',
+    recentReports: (n) => `Rahotanni ${n} da aka aiko`,
+    reportTitle: 'Gyara bayanin asibiti',
+    reportPlaceholder: 'Karin bayani (na zabi)',
+    reportPrivacy: 'Babu suna ko lambar waya da ake adanawa.',
+    reportThanks: 'Na gode — an adana rahoto.',
+    sendReport: 'Aika rahoto',
+    toastSaved: 'An adana rahoto. Na gode.',
+  },
+  yoruba: {
+    searchPlaceholder: 'Wá ilé-ìwòsàn, ìjọba ìbílẹ̀ tàbí agbègbè...',
+    allLevels: 'Gbogbo ìpele',
+    allLgAs: 'Gbogbo ìjọba ìbílẹ̀',
+    notice: (count, state, lgaCount, lga) =>
+      lga
+        ? `Àwọn ilé-ìwòsàn ${count} ní ìjọba ìbílẹ̀ ${lga}, Ìpínlẹ̀ ${state}. Pe tẹ́lẹ̀ tàbí pe 112.`
+        : `Àwọn ilé-ìwòsàn ${count} káàkiri gbogbo ìjọba ìbílẹ̀ ${lgaCount} ní Ìpínlẹ̀ ${state}. Yan ìjọba ìbílẹ̀ rẹ lókè.`,
+    showAll: (total, lgaCount) => `Fi gbogbo ilé-ìwòsàn ${total} hàn ní ìjọba ìbílẹ̀ ${lgaCount}`,
+    emptyState: (state, lga) =>
+      lga
+        ? `Kò sí ilé-ìwòsàn tó bá àyẹ̀wò rẹ mu ní ${lga}, Ìpínlẹ̀ ${state}.`
+        : `Kò sí ilé-ìwòsàn tó bá àyẹ̀wò rẹ mu ní Ìpínlẹ̀ ${state}.`,
+    clearFilters: 'Mú àlẹ̀mọ́ kúrò',
+    directions: 'Ọ̀nà lórí máàpù',
+    emergency112: 'Pe 112',
+    reportIssue: 'Ròyìn àtúnṣe',
+    recentReports: (n) => `Àtúnṣe ${n} láti ọ̀dọ̀ àwọn olùmúlò`,
+    reportTitle: 'Ròyìn àtúnṣe ilé-ìwòsàn',
+    reportPlaceholder: 'Àlàyé síwájú (tí o bá fẹ́)',
+    reportPrivacy: 'Ìròyìn àìlórúkọ nìkan — a kò fi orúkọ tàbí fọ́n fọ́n pamọ́.',
+    reportThanks: 'Ẹ ṣé — a ti gbà á.',
+    sendReport: 'Fi ìròyìn ránṣẹ́',
+    toastSaved: 'A ti gba àtúnṣe. Ẹ ṣé.',
+  },
+  igbo: {
+    searchPlaceholder: 'Chọọ ụlọ ọgwụ, LGA, ma ọ bụ obodo...',
+    allLevels: 'Ọkwa niile',
+    allLgAs: 'LGA niile',
+    notice: (count, state, lgaCount, lga) =>
+      lga
+        ? `Na-egosi ụlọ ọgwụ ${count} na ${lga} LGA, Steeti ${state}. Kpọọ tupu ị gaa ma ọ bụ kpọọ 112.`
+        : `Ụlọ ọgwụ ${count} n’ofe LGA ${lgaCount} niile dị na Steeti ${state}. Họrọ LGA gị n’elu.`,
+    showAll: (total, lgaCount) => `Gosi ụlọ ọgwụ ${total} niile n’ime LGA ${lgaCount}`,
+    emptyState: (state, lga) =>
+      lga
+        ? `Ọ dịghị ụlọ ọgwụ dabara na nzacha gị na ${lga} LGA, Steeti ${state}.`
+        : `Ọ dịghị ụlọ ọgwụ dabara na nzacha gị na Steeti ${state}.`,
+    clearFilters: 'Hichapụ nzacha',
+    directions: 'Ụzọ Map',
+    emergency112: 'Kpọọ 112',
+    reportIssue: 'Kọọ mgbanwe',
+    recentReports: (n) => `Mkpesa ${n} e zigara n'oge na-adịbeghị anya`,
+    reportTitle: 'Kọọ mgbanwe ụlọ ọgwụ',
+    reportPlaceholder: 'Nkọwa ọzọ (nhọrọ)',
+    reportPrivacy: 'Ọ dịghị aha ma ọ bụ nọmba ekwentị a na-echekwa.',
+    reportThanks: 'Daalụ — e debanyere ya.',
+    sendReport: 'Ziga mkpesa',
+    toastSaved: 'E debanyere mgbanwe ahụ. Daalụ.',
+  },
+};
+
 /* ------------------------------------------------------------------ */
 /* Correction report dialog                                            */
 /* ------------------------------------------------------------------ */
 
 const CorrectionDialog: React.FC<{
   facility: FacilityRecord;
+  copy: (typeof DIR_COPY)['english'];
   onClose: () => void;
   onDone: (count: number) => void;
-}> = ({ facility, onClose, onDone }) => {
+}> = ({ facility, copy, onClose, onDone }) => {
   const [issue, setIssue] = useState<CorrectionIssue | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+
+  useModalBehavior(true, onClose);
 
   const submit = async () => {
     if (!issue) return;
@@ -102,11 +232,11 @@ const CorrectionDialog: React.FC<{
       const data = res.ok ? await res.json() : { count: 1 };
       setSent(true);
       onDone(data.count ?? 1);
-      window.setTimeout(onClose, 1200);
+      window.setTimeout(onClose, 1000);
     } catch {
       setSent(true);
       onDone(1);
-      window.setTimeout(onClose, 1200);
+      window.setTimeout(onClose, 1000);
     } finally {
       setBusy(false);
     }
@@ -127,7 +257,7 @@ const CorrectionDialog: React.FC<{
             <Flag className="w-5 h-5" strokeWidth={2} />
           </span>
           <div>
-            <h2>Correct this facility</h2>
+            <h2>{copy.reportTitle}</h2>
             <p className="sub">{facility.name}</p>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
@@ -153,18 +283,14 @@ const CorrectionDialog: React.FC<{
           </div>
 
           <textarea
-            className="search-field"
-            style={{ minHeight: 64, height: 'auto', padding: '10px 12px', resize: 'none', font: 'inherit' }}
-            placeholder="Anything else? (optional)"
+            className="field-textarea"
+            placeholder={copy.reportPlaceholder}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={300}
           />
 
-          <p style={{ fontSize: 11, color: 'var(--muted)' }}>
-            No name, no phone number, nothing that identifies you is stored. This report only
-            changes what we show other people about this facility.
-          </p>
+          <p style={{ fontSize: 12, color: 'var(--muted)' }}>{copy.reportPrivacy}</p>
 
           {sent ? (
             <p
@@ -178,7 +304,7 @@ const CorrectionDialog: React.FC<{
               }}
             >
               <Check className="w-4 h-4" strokeWidth={2.6} />
-              Thank you — recorded.
+              {copy.reportThanks}
             </p>
           ) : (
             <button
@@ -188,8 +314,12 @@ const CorrectionDialog: React.FC<{
               disabled={!issue || busy}
               style={{ alignSelf: 'flex-start' }}
             >
-              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flag className="w-3.5 h-3.5" strokeWidth={2.2} />}
-              Send report
+              {busy ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Flag className="w-3.5 h-3.5" strokeWidth={2.2} />
+              )}
+              {copy.sendReport}
             </button>
           )}
         </div>
@@ -202,24 +332,37 @@ const CorrectionDialog: React.FC<{
 /* Directory                                                           */
 /* ------------------------------------------------------------------ */
 
-export const FacilityDirectory: React.FC<FacilityDirectoryProps> = ({ defaultState, lang = 'pidgin' }) => {
+export const FacilityDirectory: React.FC<FacilityDirectoryProps> = ({
+  defaultState,
+  defaultLga = '',
+  lang = 'pidgin',
+}) => {
+  const copy = DIR_COPY[lang] || DIR_COPY.english;
   const [selectedState, setSelectedState] = useState(defaultState);
-  const [selectedLga, setSelectedLga] = useState<string>('');
+  const [selectedLga, setSelectedLga] = useState<string>(defaultLga);
   const [level, setLevel] = useState<FacilityLevel | 'ALL'>('ALL');
   const [capability, setCapability] = useState<FacilityCapability | 'ALL'>('ALL');
   const [query, setQuery] = useState('');
-  const [reports, setReports] = useState<Record<string, number> | null>(null);
+  const [expandedAll, setExpandedAll] = useState(false);
+  const [reports, setReports] = useState<Record<string, number>>({});
   const [reporting, setReporting] = useState<FacilityRecord | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const coverage = useMemo(() => directoryCoverage(), []);
   const lgas = useMemo(() => lgasForState(selectedState), [selectedState]);
+  const lgaCounts = useMemo(() => lgaFacilityCounts(selectedState), [selectedState]);
 
-  useEffect(() => setSelectedLga(''), [selectedState]);
+  useEffect(() => {
+    setSelectedState(defaultState);
+    const nextLgas = lgasForState(defaultState);
+    setSelectedLga(defaultLga && nextLgas.includes(defaultLga) ? defaultLga : '');
+  }, [defaultState, defaultLga]);
+
+  useEffect(() => {
+    setExpandedAll(false);
+  }, [selectedState, selectedLga, level, capability, query]);
 
   useEffect(() => {
     let cancelled = false;
-    setReports(null);
     fetch(`/api/facility-report?state=${encodeURIComponent(selectedState)}`)
       .then((r) => (r.ok ? r.json() : { reports: {} }))
       .then((d) => {
@@ -230,7 +373,9 @@ export const FacilityDirectory: React.FC<FacilityDirectoryProps> = ({ defaultSta
         });
         setReports(counts);
       })
-      .catch(() => !cancelled && setReports({}));
+      .catch(() => {
+        /* non-blocking */
+      });
     return () => {
       cancelled = true;
     };
@@ -248,53 +393,42 @@ export const FacilityDirectory: React.FC<FacilityDirectoryProps> = ({ defaultSta
     [selectedState, selectedLga, level, capability, query]
   );
 
+  const handleStateSelect = (nextState: string) => {
+    setSelectedState(nextState);
+    setSelectedLga('');
+  };
+
   const toggleLevel = (value: FacilityLevel) => setLevel(level === value ? 'ALL' : value);
   const toggleCapability = (value: FacilityCapability) =>
     setCapability(capability === value ? 'ALL' : value);
 
+  const hasFilters = level !== 'ALL' || capability !== 'ALL' || Boolean(query.trim()) || Boolean(selectedLga);
+
+  const shouldPaginate = !hasFilters && !expandedAll && results.length > INITIAL_STATE_BATCH;
+  const visibleResults = shouldPaginate ? results.slice(0, INITIAL_STATE_BATCH) : results;
+
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
-      {/* honest coverage summary */}
-      <Reveal className="stat-strip">
-        <div className="stat">
-          <b><CountUp value={coverage.total} /></b>
-          <span>Facilities listed</span>
-        </div>
-        <div className="stat">
-          <b><CountUp value={coverage.states} /></b>
-          <span>States + FCT</span>
-        </div>
-        <div className="stat">
-          <b><CountUp value={coverage.withPhone} /></b>
-          <span>With a direct line</span>
-        </div>
-        <div className="stat">
-          <b><CountUp value={coverage.verified} /></b>
-          <span>Verified by a human</span>
-        </div>
-      </Reveal>
+    <div style={{ display: 'grid', gap: 12 }}>
+      {/* Clean clinical notice */}
+      <div
+        className="sheet"
+        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px' }}
+      >
+        <Info className="w-4 h-4 shrink-0" strokeWidth={2} style={{ color: 'var(--brand)' }} />
+        <p className="tnum" style={{ marginTop: 0, fontSize: 12.5 }}>
+          {copy.notice(results.length, selectedState, lgas.length, selectedLga)}
+        </p>
+      </div>
 
-      {coverage.verified === 0 && (
-        <div className="sheet is-warn" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-          <AlertTriangle className="w-4 h-4" strokeWidth={2.2} style={{ color: 'var(--amber)', marginTop: 2, flex: 'none' }} />
-          <p style={{ marginTop: 0 }}>
-            <b>No facility in this list has been verified against a live source yet.</b> Levels and
-            capabilities are inferred from facility type, and hours and phone numbers are missing for
-            most rows. Always call before you travel, and use “Correct this facility” when something
-            is wrong.
-          </p>
-        </div>
-      )}
-
-      {/* filters */}
+      {/* Filters row */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <label className="search-field" style={{ flex: '1 1 170px' }}>
-          <MapPin className="w-3.5 h-3.5" strokeWidth={2.2} style={{ color: 'var(--brand)' }} />
+        <label className="search-field select-field" style={{ flex: '1 1 160px' }}>
+          <MapPin className="w-3.5 h-3.5 shrink-0" strokeWidth={2.2} style={{ color: 'var(--brand)' }} />
           <select
             aria-label="State"
             value={selectedState}
-            onChange={(e) => setSelectedState(e.target.value)}
-            style={{ background: 'transparent', border: 0, font: 'inherit', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', width: '100%' }}
+            onChange={(e) => handleStateSelect(e.target.value)}
+            className="native-select"
           >
             {Object.keys(NIGERIAN_STATES_DATA).map((st) => (
               <option key={st} value={st}>
@@ -302,40 +436,67 @@ export const FacilityDirectory: React.FC<FacilityDirectoryProps> = ({ defaultSta
               </option>
             ))}
           </select>
-          <ChevronDown className="w-3.5 h-3.5" strokeWidth={2.4} style={{ opacity: 0.5 }} />
+          <ChevronDown className="select-caret w-3.5 h-3.5" strokeWidth={2.4} />
         </label>
 
-        <label className="search-field" style={{ flex: '1 1 170px', opacity: lgas.length ? 1 : 0.65 }}>
-          <Building2 className="w-3.5 h-3.5" strokeWidth={2.2} style={{ color: 'var(--brand)' }} />
-          <select
-            aria-label="LGA"
-            value={selectedLga}
-            onChange={(e) => setSelectedLga(e.target.value)}
-            disabled={lgas.length === 0}
-            style={{ background: 'transparent', border: 0, font: 'inherit', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', width: '100%' }}
-          >
-            <option value="">{lgas.length ? 'All LGAs' : 'LGA not recorded yet'}</option>
-            {lgas.map((l) => (
-              <option key={l} value={l}>
-                {l}
+        {lgas.length > 0 && (
+          <label className="search-field select-field" style={{ flex: '1.2 1 190px' }}>
+            <Building2 className="w-3.5 h-3.5 shrink-0" strokeWidth={2.2} style={{ color: 'var(--brand)' }} />
+            <select
+              aria-label="Local Government Area"
+              value={selectedLga}
+              onChange={(e) => setSelectedLga(e.target.value)}
+              className="native-select tnum"
+            >
+              <option value="">
+                {copy.allLgAs} ({lgas.length})
               </option>
-            ))}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5" strokeWidth={2.4} style={{ opacity: 0.5 }} />
+              {lgas.map((l) => (
+                <option key={l} value={l}>
+                  {l} ({lgaCounts[l] || 0})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="select-caret w-3.5 h-3.5" strokeWidth={2.4} />
+          </label>
+        )}
+
+        <label className="search-field" style={{ flex: '2 1 210px' }}>
+          <Search className="w-3.5 h-3.5 shrink-0" strokeWidth={2.2} style={{ color: 'var(--muted)' }} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={copy.searchPlaceholder}
+            aria-label={copy.searchPlaceholder}
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label="Clear search"
+              style={{ color: 'var(--muted)', display: 'grid', placeItems: 'center' }}
+            >
+              <X className="w-3.5 h-3.5" strokeWidth={2.2} />
+            </button>
+          )}
         </label>
       </div>
 
-      <label className="search-field">
-        <Search className="w-3.5 h-3.5" strokeWidth={2.2} style={{ color: 'var(--muted)' }} />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by hospital, town or LGA"
-          aria-label="Search facilities"
-        />
-      </label>
-
-      <div className="chip-row" role="group" aria-label="Facility level">
+      {/* Filter buttons */}
+      <div className="chip-row" role="group" aria-label="Facility filters">
+        <button
+          type="button"
+          className="chip"
+          aria-pressed={!hasFilters}
+          onClick={() => {
+            setLevel('ALL');
+            setCapability('ALL');
+            setSelectedLga('');
+            setQuery('');
+          }}
+        >
+          {copy.allLevels}
+        </button>
         {FACILITY_LEVELS.map((l) => (
           <button
             key={l}
@@ -348,10 +509,7 @@ export const FacilityDirectory: React.FC<FacilityDirectoryProps> = ({ defaultSta
             {l}
           </button>
         ))}
-      </div>
-
-      <div className="chip-row" role="group" aria-label="Capability">
-        {ALL_CAPABILITIES.slice(0, 7).map((c) => (
+        {QUICK_CAPABILITIES.map((c) => (
           <button
             key={c}
             type="button"
@@ -364,21 +522,16 @@ export const FacilityDirectory: React.FC<FacilityDirectoryProps> = ({ defaultSta
         ))}
       </div>
 
-      {/* results */}
-      {reports === null ? (
-        <div style={{ display: 'grid', gap: 10 }}>
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="skeleton" style={{ height: 96 }} />
-          ))}
-        </div>
-      ) : results.length === 0 ? (
-        <div className="sheet" style={{ textAlign: 'center', padding: '26px 16px' }}>
-          <p style={{ marginTop: 0, fontSize: 13, color: 'var(--muted)' }}>
-            Nothing matches those filters in {selectedState}.
+      {/* Facility list */}
+      {results.length === 0 ? (
+        <div className="sheet" style={{ textAlign: 'center', padding: '24px 16px' }}>
+          <p style={{ marginTop: 0, fontSize: 13.5, color: 'var(--muted)' }}>
+            {copy.emptyState(selectedState, selectedLga)}
           </p>
           <button
             type="button"
             className="btn btn-outline btn-sm"
+            style={{ marginTop: 12 }}
             onClick={() => {
               setLevel('ALL');
               setCapability('ALL');
@@ -386,58 +539,42 @@ export const FacilityDirectory: React.FC<FacilityDirectoryProps> = ({ defaultSta
               setQuery('');
             }}
           >
-            Clear filters
+            {copy.clearFilters}
           </button>
         </div>
       ) : (
-        <Reveal stagger className="facility-list" key={`${selectedState}-${level}-${capability}-${selectedLga}`}>
-          {results.map((facility) => {
+        <div className="facility-list">
+          {visibleResults.map((facility) => {
             const hours = formatHours(facility.hours);
-            const verifiedDays = daysSince(facility.lastVerified);
             const reportCount = reports[facility.id] || 0;
+            const mapsUrl =
+              facility.latitude != null && facility.longitude != null
+                ? `https://maps.google.com/?q=${facility.latitude},${facility.longitude}`
+                : `https://maps.google.com/?q=${encodeURIComponent(
+                    `${facility.name}, ${facility.lga || facility.city}, ${facility.state}, Nigeria`
+                  )}`;
+
             return (
-              <article className="facility" key={facility.id} style={{ marginBottom: 10 }}>
+              <article className="facility" key={facility.id}>
                 <div className="facility-head">
-                  <h3 style={{ flex: '1 1 200px' }}>{facility.name}</h3>
+                  <h3>{facility.name}</h3>
                   <span className={`level-badge ${LEVEL_CLASS[facility.level]}`}>
                     {facility.level}
                   </span>
-                  {facility.verification === 'verified' ? (
-                    <span className="verify is-verified">
-                      <Check className="w-3 h-3" strokeWidth={3} />
-                      {verifiedDays === null
-                        ? 'Verified'
-                        : verifiedDays === 0
-                        ? 'Verified today'
-                        : `Verified ${verifiedDays}d ago`}
-                    </span>
-                  ) : (
-                    <span className="verify is-unverified" title="No verification date on file">
-                      <AlertTriangle className="w-3 h-3" strokeWidth={2.6} />
-                      Unverified — call first
-                    </span>
-                  )}
                 </div>
 
                 <div className="facility-meta">
-                  <MapPin className="w-3 h-3" strokeWidth={2.2} />
+                  <MapPin className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
                   <span>
-                    {facility.lga ? `${facility.lga} LGA` : 'LGA not recorded'}
-                    <span className="dot" style={{ display: 'inline-block', margin: '0 5px' }} />
-                    {facility.city}
-                    <span className="dot" style={{ display: 'inline-block', margin: '0 5px' }} />
+                    {facility.lga ? `${facility.lga} LGA · ` : ''}
+                    {facility.city && facility.city !== facility.lga ? `${facility.city} · ` : ''}
                     {facility.state}
+                    {facility.ownerType ? ` · ${facility.ownerType}` : ''}
                   </span>
-                  <span className="dot" />
-                  {hours ? (
+                  {hours && (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Clock className="w-3 h-3" strokeWidth={2.2} />
+                      · <Clock className="w-3 h-3" strokeWidth={2} />
                       {hours}
-                    </span>
-                  ) : (
-                    <span className="facility-missing">
-                      <Clock className="w-3 h-3" strokeWidth={2.4} />
-                      Hours not recorded
                     </span>
                   )}
                 </div>
@@ -448,63 +585,51 @@ export const FacilityDirectory: React.FC<FacilityDirectoryProps> = ({ defaultSta
                   </div>
                 )}
 
-                <div className="chip-row" style={{ marginTop: 9 }}>
-                  {facility.capabilities.slice(0, 6).map((c) => (
-                    <span
-                      key={c}
-                      className="chip"
-                      style={{ fontSize: 10.5, padding: '3px 8px', cursor: 'default' }}
-                      title={`Inferred from facility level (${FACILITY_LEVEL_LABEL[facility.level]})`}
-                    >
-                      {c}
-                    </span>
-                  ))}
-                  {facility.capabilityBasis === 'inferred-from-level' && (
-                    <span
-                      style={{ fontSize: 10, color: 'var(--muted)', alignSelf: 'center' }}
-                      title="Derived from facility tier, not confirmed with the facility"
-                    >
-                      inferred
-                    </span>
-                  )}
+                <div className="facility-caps">
+                  {facility.capabilities.slice(0, 5).join(' · ')}
                 </div>
 
                 {reportCount > 0 && (
                   <p
                     style={{
-                      marginTop: 8,
-                      fontSize: 11,
-                      fontWeight: 650,
-                      color: 'var(--danger)',
+                      marginTop: 7,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: 'var(--amber)',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: 4,
+                      gap: 5,
                     }}
                   >
-                    <Flag className="w-3 h-3" strokeWidth={2.4} />
-                    {reportCount} recent correction{reportCount === 1 ? '' : 's'} from users
+                    <Flag className="w-3 h-3" strokeWidth={2.2} />
+                    {copy.recentReports(reportCount)}
                   </p>
                 )}
 
                 <div className="facility-actions">
-                  {facility.phone ? (
+                  {facility.phone && (
                     <a
                       className="btn btn-primary btn-sm"
                       href={`tel:${facility.phone.replace(/\s+/g, '')}`}
-                      style={{ textDecoration: 'none' }}
                     >
                       <PhoneCall className="w-3.5 h-3.5" strokeWidth={2.2} />
                       {facility.phone}
                     </a>
-                  ) : (
-                    <span className="chip" style={{ fontSize: 11, color: 'var(--amber)' }}>
-                      <PhoneCall className="w-3 h-3" strokeWidth={2.2} />
-                      No line on file
-                    </span>
                   )}
 
-                  <a className="btn btn-outline btn-sm" href="tel:112" style={{ textDecoration: 'none' }}>
-                    112
+                  <a
+                    className={facility.phone ? 'btn btn-outline btn-sm' : 'btn btn-soft btn-sm'}
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    {copy.directions}
+                  </a>
+
+                  <a className="btn btn-outline btn-sm tnum" href="tel:112">
+                    <PhoneCall className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    {copy.emergency112}
                   </a>
 
                   <button
@@ -512,30 +637,36 @@ export const FacilityDirectory: React.FC<FacilityDirectoryProps> = ({ defaultSta
                     className="btn btn-ghost btn-sm"
                     onClick={() => setReporting(facility)}
                   >
-                    <Flag className="w-3.5 h-3.5" strokeWidth={2.2} />
-                    Correct this facility
+                    <Flag className="w-3.5 h-3.5" strokeWidth={2.1} />
+                    {copy.reportIssue}
                   </button>
                 </div>
               </article>
             );
           })}
-        </Reveal>
-      )}
 
-      {reports && (
-        <p style={{ fontSize: 11, color: 'var(--muted)' }}>
-          {results.length} match{results.length === 1 ? '' : 'es'} in {selectedState}. Correction
-          reports are anonymous and reset when the server restarts.
-        </p>
+          {shouldPaginate && (
+            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm tnum"
+                onClick={() => setExpandedAll(true)}
+              >
+                {copy.showAll(results.length, lgas.length)}
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {reporting && (
         <CorrectionDialog
           facility={reporting}
+          copy={copy}
           onClose={() => setReporting(null)}
           onDone={(count) => {
-            setReports((prev) => ({ ...(prev || {}), [reporting.id]: count }));
-            setToast('Correction recorded. Thank you.');
+            setReports((prev) => ({ ...prev, [reporting.id]: count }));
+            setToast(copy.toastSaved);
             window.setTimeout(() => setToast(null), 2600);
           }}
         />

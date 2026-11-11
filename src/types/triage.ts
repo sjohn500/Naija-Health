@@ -35,6 +35,7 @@ export interface TriageResult {
   clarifyingQuestions?: string[];
   recommendedFacilities?: string[];
   detectedLocation?: string;
+  detectedLga?: string;
   disclaimer: string;
   fullFormattedResponse?: string;
   rawText?: string;
@@ -54,8 +55,11 @@ export interface NigerianFacility {
   type: 'Teaching Hospital' | 'Federal Medical Centre' | 'General Hospital' | 'Specialist Hospital';
   city: string;
   state: string;
+  lga?: string;
   address?: string;
   emergencyPhone?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface StateHealthInfo {

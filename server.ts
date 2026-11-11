@@ -5,10 +5,17 @@ import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { NIGERIAN_STATES_DATA, RED_FLAG_SYMPTOMS, NATIONAL_EMERGENCY_NUMBERS } from './src/data/nigeriaHealthcareData';
 import {
+  STATE_LGAS,
+  directoryCoverage,
+  facilitiesForLga,
+  lgasForState,
+  searchFacilities,
+} from './src/data/facilityDirectory';
+import {
   buildFallbackTriage,
   buildFormattedResponse,
   detectLocalRedFlags,
-  detectStateFromText,
+  detectLocationFromText,
   getSectionHeaders,
 } from './src/data/fallbackTriage';
 import { SupportedLanguage } from './src/types/triage';
@@ -118,17 +125,28 @@ app.get('/api/health', (_req: Request, res: Response) => {
   });
 });
 
-// Nigerian Hospital & Emergency Directory
+// Nigerian Hospital & Emergency Directory (all 36 states + FCT and 774 LGAs)
 app.get('/api/facilities', (req: Request, res: Response) => {
-  const state = req.query.state as string;
+  const state = typeof req.query.state === 'string' ? req.query.state : '';
+  const lga = typeof req.query.lga === 'string' ? req.query.lga : '';
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+
   if (state && NIGERIAN_STATES_DATA[state]) {
+    const lgas = lgasForState(state);
+    const validLga = lga && lgas.includes(lga) ? lga : null;
     return res.json({
       state,
+      lga: validLga,
+      lgas,
+      facilities: searchFacilities({ state, lga: validLga, query: q }),
       data: NIGERIAN_STATES_DATA[state],
     });
   }
+
   return res.json({
     states: Object.keys(NIGERIAN_STATES_DATA),
+    coverage: directoryCoverage(),
+    lgasByState: STATE_LGAS,
     nationalHotlines: NATIONAL_EMERGENCY_NUMBERS,
     redFlags: RED_FLAG_SYMPTOMS,
   });
@@ -156,28 +174,46 @@ app.post('/api/triage', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Symptom description message is required.' });
   }
 
-  // Detect location from message or payload
-  const detectedFromMsg = detectStateFromText(message);
+  // Detect state/LGA from patient's message first; fall back to selected header location
+  const detectedLoc = detectLocationFromText(message);
   const targetState =
-    userLocation?.state && NIGERIAN_STATES_DATA[userLocation.state]
+    detectedLoc.state && NIGERIAN_STATES_DATA[detectedLoc.state]
+      ? detectedLoc.state
+      : userLocation?.state && NIGERIAN_STATES_DATA[userLocation.state]
       ? userLocation.state
-      : detectedFromMsg || 'Lagos';
+      : 'Lagos';
+
+  const stateLgas = STATE_LGAS[targetState] || [];
+  const targetLga =
+    detectedLoc.lga && stateLgas.includes(detectedLoc.lga)
+      ? detectedLoc.lga
+      : typeof userLocation?.lga === 'string' && stateLgas.includes(userLocation.lga)
+      ? userLocation.lga
+      : undefined;
+
   const stateData = NIGERIAN_STATES_DATA[targetState] || NIGERIAN_STATES_DATA['Lagos'];
-  const facilitiesList = stateData.facilities.map((f) => `${f.name} (${f.city})`).join(', ');
+  const lgaFacilities = targetLga
+    ? facilitiesForLga(targetState, targetLga)
+        .slice(0, 3)
+        .map((f) => `${f.name} (${targetLga} LGA)`)
+    : [];
+  const flagshipFacilities = stateData.facilities.map((f) => `${f.name} (${f.city})`);
+  const curatedFacilitiesForPrompt = Array.from(new Set([...lgaFacilities, ...flagshipFacilities])).slice(0, 6);
+  const facilitiesList = curatedFacilitiesForPrompt.join(', ');
   const headers = getSectionHeaders(targetLang);
 
   // Safety check first: detect red flags across all 5 languages immediately
   const immediateSafetyCheck = detectLocalRedFlags(message);
   if (immediateSafetyCheck.isRedFlag) {
     console.log(`Immediate red-flag detected (${targetLang}). Dispatching urgent response without waiting.`);
-    const emergencyResult = buildFallbackTriage(message, targetState, targetLang);
+    const emergencyResult = buildFallbackTriage(message, targetState, targetLang, targetLga);
     return res.json(emergencyResult);
   }
 
   // If API key not configured, use full 5-language clinical fallback
   if (!ai || !isGeminiConfigured()) {
     console.log(`Using multilingual rule-based triage in ${targetLang} (API key unconfigured).`);
-    return res.json(buildFallbackTriage(message, targetState, targetLang));
+    return res.json(buildFallbackTriage(message, targetState, targetLang, targetLga));
   }
 
   const languageSpecs: Record<SupportedLanguage, string> = {
@@ -230,7 +266,7 @@ CRITICAL SAFETY PROTOCOL:
   * Direct them urgently to the nearest emergency hospital in ${targetState} and to call 112.
 - Keep responses concise, empathetic, and structured clearly.`;
 
-  const promptText = `Patient State/City: ${targetState}, Nigeria (City note: ${userLocation?.city || 'not specified'}).
+  const promptText = `Patient State/LGA: ${targetLga ? `${targetLga} LGA, ` : ''}${targetState}, Nigeria (City note: ${userLocation?.city || 'not specified'}).
 Target Output Language: ${targetLang.toUpperCase()}.
 Recent Conversation:
 ${conversationHistory
@@ -363,18 +399,19 @@ Respond in JSON with every narrative string written in ${targetLang.toUpperCase(
     if (immediateSafetyCheck.isRedFlag) {
       parsedData.isRedFlag = true;
       parsedData.urgencyLevel = 'emergency';
-      home = buildFallbackTriage(message, normalizedLocation, targetLang).wetinYouFitDoForHouse;
+      home = buildFallbackTriage(message, normalizedLocation, targetLang, targetLga).wetinYouFitDoForHouse;
     }
 
     const recommendedFacilities =
       Array.isArray(parsedData.recommendedFacilities) && parsedData.recommendedFacilities.length > 0
         ? parsedData.recommendedFacilities
-        : stateData.facilities.map((f) => `${f.name} (${f.city})`).slice(0, 3);
+        : curatedFacilitiesForPrompt.slice(0, 3);
 
     const finalPayload = {
       ...parsedData,
       language: targetLang,
       detectedLocation: normalizedLocation,
+      detectedLga: targetLga,
       recommendedFacilities,
       wetinFitDeyHappen: causes,
       wetinYouFitDoForHouse: home,
@@ -398,7 +435,7 @@ Respond in JSON with every narrative string written in ${targetLang.toUpperCase(
     return res.json(finalPayload);
   } catch (error: any) {
     console.error(`Triage (${targetLang}) AI error after ${Date.now() - startedAt}ms:`, error?.message || error);
-    const fallbackResult = buildFallbackTriage(message, targetState, targetLang);
+    const fallbackResult = buildFallbackTriage(message, targetState, targetLang, targetLga);
     return res.json(fallbackResult);
   }
 });

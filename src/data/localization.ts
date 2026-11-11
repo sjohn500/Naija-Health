@@ -122,7 +122,7 @@ export const TRANSLATIONS: Record<SupportedLanguage, LanguageStrings> = {
     greeting: `Pele o! How your body dey do you or your family right now?
 
 Tell me any sickness at all — **hot body, belle trouble, small pikin fever, or belle (pregnancy) check** — by voice or typing. Remember to mention your **state or town** so I fit show you real hospital near you sharp-sharp!`,
-    switchNotice: `💚 Language don change to **Naija Pidgin**. Tell me how your body dey do you, I go reply you inside clear Pidgin!`,
+    switchNotice: `Language don change to **Naija Pidgin**. Tell me how your body dey do you, I go reply you inside clear Pidgin!`,
     welcomeShowcase: {
       headline: 'Check Your Health Fast — No Big Medical Grammar',
       tagline: 'Speak or type any symptom in your own Naija language and get clear steps in seconds.',
@@ -158,7 +158,7 @@ Tell me any sickness at all — **hot body, belle trouble, small pikin fever, or
     chat: {
       you: 'You',
       evaluating: 'Dey check your symptoms and Nigerian health guidelines...',
-      commonSymptomsTitle: '⚡ Common Symptoms (Tap to check):',
+      commonSymptomsTitle: 'Common Symptoms (Tap to check):',
       scrollHint: 'Scroll to see all →',
       placeholderIdle: 'Describe how body dey do you (e.g. 2 days hot body, purging, Ikeja Lagos)...',
       placeholderListening: 'I dey hear you, talk your symptoms...',
@@ -185,7 +185,7 @@ Tell me any sickness at all — **hot body, belle trouble, small pikin fever, or
       preparingAudio: 'Loading voice...',
       share: 'Share',
       copied: 'Copied',
-      immediateAttention: '🚨 RUSH GO HOSPITAL NOW-NOW',
+      immediateAttention: 'RUSH GO HOSPITAL NOW-NOW',
       defaultEmergencyWarning: 'Danger sign dey! No do any home remedy at all.',
       call112Free: 'Call 112 Free',
       causesTitle: 'Wetin Fit Dey Happen',
@@ -197,7 +197,7 @@ Tell me any sickness at all — **hot body, belle trouble, small pikin fever, or
       browseHospitals: 'Check Hospitals',
       clarifyingTitle: 'Small question make I understand well:',
       clarifyPrefix: 'Answer:',
-      defaultDisclaimer: '⚠️ Abeg remember: I be NaijaHealth AI assistant o, I no be real medical doctor. If body no do you well or the matter tight, go meet doctor for hospital or call 112 sharp-sharp.',
+      defaultDisclaimer: 'Abeg remember: I be NaijaHealth AI assistant o, I no be real medical doctor. If body no do you well or the matter tight, go meet doctor for hospital or call 112 sharp-sharp.',
       whatsappHeader: '*🟢 NAIJAHEALTH AI TRIAGE REPORT*',
       whatsappLocation: '*Location:*',
       whatsappUrgency: '*Level:*',
@@ -333,7 +333,7 @@ Tell me any sickness at all — **hot body, belle trouble, small pikin fever, or
     greeting: `How are you or your loved ones feeling today?
 
 Tell me about **any illness or symptom** — whether fever, stomach pain, child care, or pregnancy concerns — by voice or text. Mention your **city or state** to get nearby Nigerian hospital routing immediately.`,
-    switchNotice: `💚 Language switched to **English (Nigeria)**. Please share your symptoms and I will guide you clearly in plain English.`,
+    switchNotice: `Language switched to **English (Nigeria)**. Please share your symptoms and I will guide you clearly in plain English.`,
     welcomeShowcase: {
       headline: 'Instant Health Guidance Without Confusing Medical Jargon',
       tagline: 'Describe any symptom by voice or text and get trusted steps tailored to Nigeria.',
@@ -369,7 +369,7 @@ Tell me about **any illness or symptom** — whether fever, stomach pain, child 
     chat: {
       you: 'You',
       evaluating: 'Evaluating symptoms and checking verified Nigerian clinical protocols...',
-      commonSymptomsTitle: '⚡ Common Symptoms (Tap to triage):',
+      commonSymptomsTitle: 'Common Symptoms (Tap to triage):',
       scrollHint: 'Scroll to see all →',
       placeholderIdle: 'Type your symptoms (e.g. fever for 2 days, purging, Ikeja Lagos)...',
       placeholderListening: 'Listening to your voice...',
@@ -408,7 +408,7 @@ Tell me about **any illness or symptom** — whether fever, stomach pain, child 
       browseHospitals: 'Browse Hospitals',
       clarifyingTitle: 'Clarifying details:',
       clarifyPrefix: 'Answer:',
-      defaultDisclaimer: '⚠️ Medical Disclaimer: NaijaHealth AI is an informational triage support tool and does not provide formal medical diagnoses or prescriptions. In emergencies, visit the nearest hospital or call 112 immediately.',
+      defaultDisclaimer: 'Medical Disclaimer: NaijaHealth AI is an informational triage support tool and does not provide formal medical diagnoses or prescriptions. In emergencies, visit the nearest hospital or call 112 immediately.',
       whatsappHeader: '*🟢 NAIJAHEALTH AI TRIAGE REPORT*',
       whatsappLocation: '*Location:*',
       whatsappUrgency: '*Urgency:*',
@@ -544,7 +544,7 @@ Tell me about **any illness or symptom** — whether fever, stomach pain, child 
     greeting: `Sannu da zuwa! Yaya jikinka ko lafiyar iyalinka ke ciki a yau?
 
 Fada min **kowace irin rashin lafiya** — kamar zazzabi, ciwon ciki, lafiyar yaro, ko kula da mai juna biyu — ta hanyar murya ko rubutu, kuma ka fadi **jihar da kake ciki** don ganin asibiti mafi kusa.`,
-    switchNotice: `💚 An canza yare zuwa **Harshen Hausa**. Fada min abin da ke damun ka, zan ba ka shawara a Hausa mai sauki!`,
+    switchNotice: `An canza yare zuwa **Harshen Hausa**. Fada min abin da ke damun ka, zan ba ka shawara a Hausa mai sauki!`,
     welcomeShowcase: {
       headline: 'Binciken Lafiya Cikin Sauri Ba Tare Da Wahala Ba',
       tagline: 'Yi magana ko rubuta alamun cutar ka cikin sauki don samun shawarwari da asibitoci.',
@@ -580,7 +580,7 @@ Fada min **kowace irin rashin lafiya** — kamar zazzabi, ciwon ciki, lafiyar ya
     chat: {
       you: 'Kai',
       evaluating: 'Ana duba alamun cutar da ka' + '\'' + 'idar lafiya ta Najeriya...',
-      commonSymptomsTitle: '⚡ Alamomin Cuta Na Yau Da Kullum (Danna):',
+      commonSymptomsTitle: 'Alamomin Cuta Na Yau Da Kullum (Danna):',
       scrollHint: 'Zame don ganin saura →',
       placeholderIdle: 'Bayyana abin da ke damun ka (misali: zazzabi, zawo, Kano)...',
       placeholderListening: 'Ina sauraron ka, yi magana...',
@@ -607,7 +607,7 @@ Fada min **kowace irin rashin lafiya** — kamar zazzabi, ciwon ciki, lafiyar ya
       preparingAudio: 'Ana hada murya...',
       share: 'Tura',
       copied: 'An Kwafa',
-      immediateAttention: '🚨 GAGGAWA: A TAFI ASIBITI NAN TAKE',
+      immediateAttention: 'GAGGAWA: A TAFI ASIBITI NAN TAKE',
       defaultEmergencyWarning: 'Alamun hatsari ne! Kada ka tsaya wani maganin gida ko kadan.',
       call112Free: 'Kira 112 Kyauta',
       causesTitle: 'Abubuwan Da Ka Iya Kawo Shi',
@@ -619,7 +619,7 @@ Fada min **kowace irin rashin lafiya** — kamar zazzabi, ciwon ciki, lafiyar ya
       browseHospitals: 'Duba Asibitoci',
       clarifyingTitle: 'Karin bayani:',
       clarifyPrefix: 'Amsa:',
-      defaultDisclaimer: '⚠️ Tunatarwa: Ni mataimakin AI ne (NaijaHealth AI), ba likita na gaskiya ba. Idan jiki yayi tsanani, tafi asibiti kusa da kai ko kira 112.',
+      defaultDisclaimer: 'Tunatarwa: Ni mataimakin AI ne (NaijaHealth AI), ba likita na gaskiya ba. Idan jiki yayi tsanani, tafi asibiti kusa da kai ko kira 112.',
       whatsappHeader: '*🟢 RAHOTON LAFIYA NA NAIJAHEALTH AI*',
       whatsappLocation: '*Wuri:*',
       whatsappUrgency: '*Yanayi:*',
@@ -755,7 +755,7 @@ Fada min **kowace irin rashin lafiya** — kamar zazzabi, ciwon ciki, lafiyar ya
     greeting: `Pẹ̀lẹ́ o! Báwo ni ara rẹ tàbí ti ẹbí rẹ ṣe ń ṣe lónìí?
 
 Sọ **irú àìsàn èyíkéyìí** fún mi — yálà ibà, inú rírun, ìtọ́jú ọmọdé, tàbí ti aláboyún — nípa fífi ohùn sọ̀rọ̀ tàbí kíkọ ọ́ sílẹ̀, kí o sì dárúkọ **ìpínlẹ̀ rẹ** fún ilé-ìwòsàn tó súnmọ́.`,
-    switchNotice: `💚 A ti yí èdè padà sí **Èdè Yorùbá**. Ẹ sọ bí ara ṣe ń ṣe yín fún mi, màá sì bá yín sọ̀rọ̀ ní Yorùbá tó rọrùn!`,
+    switchNotice: `A ti yí èdè padà sí **Èdè Yorùbá**. Ẹ sọ bí ara ṣe ń ṣe yín fún mi, màá sì bá yín sọ̀rọ̀ ní Yorùbá tó rọrùn!`,
     welcomeShowcase: {
       headline: 'Àyẹ̀wò Ìlera Kíákíá Ní Èdè Rẹ Láìsí Ọ̀rọ̀ Tó Le',
       tagline: 'Sọ̀rọ̀ tàbí kọ bí ara ṣe ń ṣe ọ́ kí o sì gba ìtọ́sọ́nà ilé àti ilé-ìwòsàn lẹ́sẹ̀kẹsẹ̀.',
@@ -791,7 +791,7 @@ Sọ **irú àìsàn èyíkéyìí** fún mi — yálà ibà, inú rírun, ìt�
     chat: {
       you: 'Ìwọ',
       evaluating: 'À ń ṣàyẹ̀wò àmì àìsàn yín àti ìlànà ìlera Nàìjíríà...',
-      commonSymptomsTitle: '⚡ Àwọn Àmì Àìsàn Tó Wọ́pọ̀ (Tẹ̀ ẹ́):',
+      commonSymptomsTitle: 'Àwọn Àmì Àìsàn Tó Wọ́pọ̀ (Tẹ̀ ẹ́):',
       scrollHint: 'Yí i láti rí ìyókù →',
       placeholderIdle: 'Kọ bí ara ṣe ń ṣe yín (àpẹẹrẹ: ibà, ìgbẹ́ gbuuru, Ibadan)...',
       placeholderListening: 'Mo ń gbọ́ yín, ẹ sọ̀rọ̀...',
@@ -818,7 +818,7 @@ Sọ **irú àìsàn èyíkéyìí** fún mi — yálà ibà, inú rírun, ìt�
       preparingAudio: 'Ń mú ohùn bọ̀...',
       share: 'Pín',
       copied: 'Ti Da Kọ́ọ̀pì',
-      immediateAttention: '🚨 PÀJÁWÌRÌ: Ẹ LỌ SÍ ILÉ-ÌWÒSÀN LẸ́SẸ̀KẸSẸ̀',
+      immediateAttention: 'PÀJÁWÌRÌ: Ẹ LỌ SÍ ILÉ-ÌWÒSÀN LẸ́SẸ̀KẸSẸ̀',
       defaultEmergencyWarning: 'Àmì ewu gidi ni èyí! Ẹ má ṣe oògùn ilé kankan.',
       call112Free: 'Pe 112 Lọ́fẹ̀ẹ́',
       causesTitle: 'Kini O Le Fa E',
@@ -830,7 +830,7 @@ Sọ **irú àìsàn èyíkéyìí** fún mi — yálà ibà, inú rírun, ìt�
       browseHospitals: 'Wo Ilé-ìwòsàn',
       clarifyingTitle: 'Àlàyé síwájú si:',
       clarifyPrefix: 'Ìdáhùn:',
-      defaultDisclaimer: '⚠️ Ìkìlọ̀: Èmi jẹ́ olùrànlọ́wọ́ AI, mi kìí ṣe dọ́kítà gidi. Tí ara bá le koko, ẹ lọ sí ilé-ìwòsàn tàbí kí ẹ pe 112 lẹ́sẹ̀kẹsẹ̀.',
+      defaultDisclaimer: 'Ìkìlọ̀: Èmi jẹ́ olùrànlọ́wọ́ AI, mi kìí ṣe dọ́kítà gidi. Tí ara bá le koko, ẹ lọ sí ilé-ìwòsàn tàbí kí ẹ pe 112 lẹ́sẹ̀kẹsẹ̀.',
       whatsappHeader: '*🟢 ÀBÁJÁDE ÌTỌ́SỌ́NÀ NAIJAHEALTH AI*',
       whatsappLocation: '*Agbègbè:*',
       whatsappUrgency: '*Ipò:*',
@@ -966,7 +966,7 @@ Sọ **irú àìsàn èyíkéyìí** fún mi — yálà ibà, inú rírun, ìt�
     greeting: `Ndewo! Kedu ka ahụ dị gị ma ọ bụ ezinụlọ gị taa?
 
 Gwa m **ụdị ọrịa ọ bụla** — dịka ahụ ọkụ, afọ mgbu, nlekọta nwatakịrị, ma ọ bụ nwaanyị dị ime — site n'olu ma ọ bụ ide edemede, ma kwuo **steeti i nọ na ya** ka m gosi gị ụlọ ọgwụ dị nso.`,
-    switchNotice: `💚 Agbanweela asụsụ gaa n'**Asụsụ Igbo**. Biko gwa m ka ahụ dị gị, m ga-aza gị n'Igbo doro anya!`,
+    switchNotice: `Agbanweela asụsụ gaa n'**Asụsụ Igbo**. Biko gwa m ka ahụ dị gị, m ga-aza gị n'Igbo doro anya!`,
     welcomeShowcase: {
       headline: 'Nyocha Ahụike Ngwa Ngwa N’Asụsụ Gị N’Enyemaka Doro Anya',
       tagline: 'Jiri olu gị ma ọ bụ dee mgbaàmà gị ka i nweta ntụziaka nchebe na ụlọ ọgwụ.',
@@ -1002,7 +1002,7 @@ Gwa m **ụdị ọrịa ọ bụla** — dịka ahụ ọkụ, afọ mgbu, nlek
     chat: {
       you: 'Gị',
       evaluating: 'Na-enyocha mgbaàmà ahụike gị na usoro ahụike Naịjirịa...',
-      commonSymptomsTitle: '⚡ Ọrịa Ndị Na-emekarị (Pịa ebe a):',
+      commonSymptomsTitle: 'Ọrịa Ndị Na-emekarị (Pịa ebe a):',
       scrollHint: 'Kpụgharịa iji hụ ndị ọzọ →',
       placeholderIdle: 'Kọwaa ka ahụ dị gị (dịka ahụ ọkụ ụbọchị abụọ, afọ ọsịsa, Enugu)...',
       placeholderListening: 'Ana m ege gị ntị, kwuo okwu...',
@@ -1029,7 +1029,7 @@ Gwa m **ụdị ọrịa ọ bụla** — dịka ahụ ọkụ, afọ mgbu, nlek
       preparingAudio: 'Na-akwadebe olu...',
       share: 'Kesaa',
       copied: 'E Detụrụ Ya',
-      immediateAttention: '🚨 MBEREDE: Gaa Ụlọ Ọgwụ Ozugbo',
+      immediateAttention: 'MBEREDE: Gaa Ụlọ Ọgwụ Ozugbo',
       defaultEmergencyWarning: 'Nke a bụ ihe ịrịba ama mberede dị egwu! Emela ọgwụ ụlọ ọ bụla.',
       call112Free: 'Kpọọ 112 N' + '\'' + 'efu',
       causesTitle: 'Ihe Nwere Ike Na-ebute Ya',
@@ -1041,7 +1041,7 @@ Gwa m **ụdị ọrịa ọ bụla** — dịka ahụ ọkụ, afọ mgbu, nlek
       browseHospitals: 'Chọta Ụlọ Ọgwụ',
       clarifyingTitle: 'Ajụjụ ntakịrị iji ghọta nke ọma:',
       clarifyPrefix: 'Azịza:',
-      defaultDisclaimer: '⚠️ Rịba ama: Abụ m onye inyeaka AI, abụghị m ezigbo dọkịta. Ọ bụrụ na ahụ adịghị gị mma nke ukwuu, gaa ụlọ ọgwụ ma ọ bụ kpọọ 112 ugbu a.',
+      defaultDisclaimer: 'Rịba ama: Abụ m onye inyeaka AI, abụghị m ezigbo dọkịta. Ọ bụrụ na ahụ adịghị gị mma nke ukwuu, gaa ụlọ ọgwụ ma ọ bụ kpọọ 112 ugbu a.',
       whatsappHeader: '*🟢 AKỤKỌ AHỤIKE NAIJAHEALTH AI*',
       whatsappLocation: '*Ebe ị nọ:*',
       whatsappUrgency: '*Ọkwa:*',

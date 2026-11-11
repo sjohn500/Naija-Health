@@ -364,6 +364,8 @@ export interface ArtSite {
   lga: string | null;
   type: string;
   phone?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   capabilities: ArtCapability[];
   verification: 'unverified' | 'reported' | 'verified';
   lastVerified: string | null;
@@ -373,24 +375,28 @@ const ART_CAPABILITIES: ArtCapability[] = ['ART', 'PEP', 'PMTCT', 'VL testing'];
 
 /**
  * Capability comes from the shared national directory, where it is derived from
- * facility LEVEL — never a stock claim. Every surface that uses this must still
- * say "call to confirm".
+ * facility LEVEL — never a stock claim. PHCs without ART/PEP capabilities are
+ * excluded here so patients are routed directly to ART/PEP hospital units.
  */
 export function artSitesForState(state: string): ArtSite[] {
-  return facilitiesForState(state).map((f) => ({
-    id: f.id,
-    name: f.name,
-    city: f.city,
-    state: f.state,
-    lga: f.lga,
-    type: FACILITY_LEVEL_LABEL[f.level],
-    phone: f.phone ?? undefined,
-    capabilities: f.capabilities.filter((c): c is ArtCapability =>
-      (ART_CAPABILITIES as string[]).includes(c)
-    ),
-    verification: f.verification,
-    lastVerified: f.lastVerified,
-  }));
+  return facilitiesForState(state)
+    .map((f) => ({
+      id: f.id,
+      name: f.name,
+      city: f.city,
+      state: f.state,
+      lga: f.lga,
+      type: FACILITY_LEVEL_LABEL[f.level],
+      phone: f.phone ?? undefined,
+      latitude: f.latitude ?? null,
+      longitude: f.longitude ?? null,
+      capabilities: f.capabilities.filter((c): c is ArtCapability =>
+        (ART_CAPABILITIES as string[]).includes(c)
+      ),
+      verification: f.verification,
+      lastVerified: f.lastVerified,
+    }))
+    .filter((site) => site.capabilities.length > 0);
 }
 
 export function pepSitesForState(state: string): ArtSite[] {

@@ -8,7 +8,6 @@ import {
   Mic,
   MicOff,
   RefreshCw,
-  MapPin,
   HeartPulse,
   AlertTriangle,
   ShieldCheck,
@@ -22,13 +21,13 @@ import {
   Heart,
   Activity,
   Loader2,
-  BookOpen,
   ArrowRight,
-  Building2,
   Baby,
   Lock,
+  X,
 } from 'lucide-react';
 import { Header } from './components/Header';
+import { BrandMark } from './components/BrandMark';
 import { EmergencyModal } from './components/EmergencyModal';
 import { HospitalDirectoryModal } from './components/HospitalDirectoryModal';
 import { FirstAidModal } from './components/FirstAidModal';
@@ -38,12 +37,14 @@ import { TriageResultView } from './components/TriageResultView';
 import { ResilientImage } from './components/ResilientImage';
 import { ChatMessage, TriageResult, SupportedLanguage, SUPPORTED_LANGUAGES } from './types/triage';
 import { NIGERIAN_STATES_DATA } from './data/nigeriaHealthcareData';
+import { facilitiesForState, lgasForState } from './data/facilityDirectory';
 import { TRANSLATIONS } from './data/localization';
 import { VISUAL_ASSETS } from './data/visualAssets';
 import { privateUi } from './data/privateCare';
-import { useRevealOnScroll } from './lib/useRevealOnScroll';
 
 type ViewMode = 'clinic' | 'whatsapp';
+
+const HERO_QUICK_SYMPTOM_INDICES = [0, 1, 4, 6];
 
 export default function App() {
   const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>('pidgin');
@@ -62,14 +63,31 @@ export default function App() {
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('clinic');
+  const [composerShake, setComposerShake] = useState<boolean>(false);
 
   // Modals state
+  const [selectedLga, setSelectedLga] = useState<string>('');
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState<boolean>(false);
   const [isHospitalsModalOpen, setIsHospitalsModalOpen] = useState<boolean>(false);
   const [isFirstAidModalOpen, setIsFirstAidModalOpen] = useState<boolean>(false);
   const [isPrivateChatOpen, setIsPrivateChatOpen] = useState<boolean>(false);
   const [isArtDirectoryOpen, setIsArtDirectoryOpen] = useState<boolean>(false);
   const [firstAidGuideId, setFirstAidGuideId] = useState<string>('ors');
+
+  const handleStateSelect = (nextState: string) => {
+    setSelectedState(nextState);
+    setSelectedLga('');
+  };
+
+  const openHospitalsDirectory = (stateOverride?: string, lgaOverride?: string) => {
+    if (stateOverride && NIGERIAN_STATES_DATA[stateOverride]) {
+      setSelectedState(stateOverride);
+    }
+    if (lgaOverride !== undefined) {
+      setSelectedLga(lgaOverride);
+    }
+    setIsHospitalsModalOpen(true);
+  };
 
   const openFirstAidGuide = (guideId?: string) => {
     if (guideId) {
@@ -78,12 +96,14 @@ export default function App() {
     setIsFirstAidModalOpen(true);
   };
 
+  const convRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const wasInputEmptyBeforeVoiceRef = useRef<boolean>(true);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const t = TRANSLATIONS[selectedLanguage] || TRANSLATIONS.pidgin;
 
@@ -101,11 +121,6 @@ export default function App() {
     });
   };
 
-  /**
-   * The prototype's H1 is two lines: a plain statement, then a coloured
-   * accent clause. Split the localised headline on its em-dash so every
-   * language keeps a natural break instead of a hard-coded English split.
-   */
   const renderHeroHeadline = (headline: string) => {
     const parts = headline.split(/\s+[—–]\s+/);
     if (parts.length < 2) return headline;
@@ -117,14 +132,24 @@ export default function App() {
     );
   };
 
-  // Auto scroll to the newest message only when one is added — never on first paint
+  // Smoothly scroll conversation only when new messages arrive
   const prevMessageCountRef = useRef<number>(messages.length);
   useEffect(() => {
-    if (messages.length > prevMessageCountRef.current) {
+    if (messages.length > prevMessageCountRef.current || isLoading) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     prevMessageCountRef.current = messages.length;
   }, [messages, isLoading]);
+
+  // Keep textarea height synced cleanly on type, voice append, clear, or reset
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    if (inputText) {
+      el.style.height = `${Math.min(el.scrollHeight, 150)}px`;
+    }
+  }, [inputText]);
 
   // Cleanup active mic stream on unmount
   useEffect(() => {
@@ -136,13 +161,12 @@ export default function App() {
         try {
           recognitionRef.current.stop();
         } catch {
-          // ignore
+          /* ignore */
         }
       }
     };
   }, []);
 
-  // Handle language switch across all 5 languages
   const handleLanguageChange = (newLang: SupportedLanguage) => {
     if (newLang === selectedLanguage) return;
     setSelectedLanguage(newLang);
@@ -173,7 +197,6 @@ export default function App() {
     }
   };
 
-  // Fallback browser Web Speech Recognition helper
   const startBrowserSpeechRecognition = () => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -210,7 +233,6 @@ export default function App() {
     };
 
     recognition.onerror = (event: any) => {
-      console.warn('Speech recognition error:', event.error);
       setIsListening(false);
       if (event.error === 'not-allowed') {
         setRecognitionError(t.chat.micDenied);
@@ -219,9 +241,7 @@ export default function App() {
       }
     };
 
-    recognition.onend = () => {
-      setIsListening(false);
-    };
+    recognition.onend = () => setIsListening(false);
 
     recognitionRef.current = recognition;
     try {
@@ -244,7 +264,6 @@ export default function App() {
 
     if (isTranscribing) return;
 
-    // Stop if already listening / recording
     if (isListening) {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         stopMediaRecorderAndTranscribe();
@@ -252,7 +271,7 @@ export default function App() {
         try {
           recognitionRef.current.stop();
         } catch {
-          // ignore
+          /* ignore */
         }
         setIsListening(false);
       }
@@ -261,7 +280,6 @@ export default function App() {
 
     wasInputEmptyBeforeVoiceRef.current = !inputText.trim();
 
-    // Prefer MediaRecorder + Gemini Transcribe (works across Hausa, Yoruba, Igbo, Pidgin, English!)
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== 'undefined') {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -347,8 +365,7 @@ export default function App() {
             } else {
               setRecognitionError(t.chat.transcribeFailed);
             }
-          } catch (err) {
-            console.warn('Server transcribe unavailable, trying browser fallback:', err);
+          } catch {
             setRecognitionError(t.chat.transcribeFailed);
           } finally {
             setIsTranscribing(false);
@@ -360,12 +377,10 @@ export default function App() {
         setIsListening(true);
         return;
       } catch (err: any) {
-        console.warn('MediaRecorder error:', err);
         if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
           setRecognitionError(t.chat.micDenied);
           return;
         }
-        // Fallback to native SpeechRecognition if mic permissions aren't blocked
         startBrowserSpeechRecognition();
         return;
       }
@@ -374,7 +389,11 @@ export default function App() {
     startBrowserSpeechRecognition();
   };
 
-  const handleSendMessage = async (textToSend?: string, overrideLang?: SupportedLanguage) => {
+  const handleSendMessage = async (
+    textToSend?: string,
+    overrideLang?: SupportedLanguage,
+    scrollToThread = false
+  ) => {
     const content = (textToSend || inputText).trim();
     if (!content || isLoading) return;
 
@@ -391,7 +410,14 @@ export default function App() {
     if (!textToSend) {
       setInputText('');
     }
+    setRecognitionError(null);
     setIsLoading(true);
+
+    if (scrollToThread) {
+      window.setTimeout(() => {
+        convRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    }
 
     try {
       const historyPayload = messages
@@ -403,16 +429,12 @@ export default function App() {
 
       const res = await fetch('/api/triage', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: content,
           language: requestLang,
           conversationHistory: historyPayload,
-          userLocation: {
-            state: selectedState,
-          },
+          userLocation: { state: selectedState, lga: selectedLga || undefined },
         }),
       });
 
@@ -424,6 +446,9 @@ export default function App() {
 
       if (data.detectedLocation && NIGERIAN_STATES_DATA[data.detectedLocation]) {
         setSelectedState(data.detectedLocation);
+        setSelectedLga(data.detectedLga || '');
+      } else if (data.detectedLga) {
+        setSelectedLga(data.detectedLga);
       }
 
       const resolvedLang: SupportedLanguage =
@@ -442,10 +467,7 @@ export default function App() {
           data.fullFormattedResponse ||
           `${data.wetinFitDeyHappen || data.potentialCauses}\n\n${data.wetinYouFitDoForHouse || data.homeManagement}\n\n${data.nextStep || data.actionPlan}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        triageData: {
-          ...data,
-          language: resolvedLang,
-        },
+        triageData: { ...data, language: resolvedLang },
         isEmergencyAlert: data.isRedFlag,
       };
 
@@ -477,17 +499,9 @@ export default function App() {
     setRecognitionError(null);
   };
 
-  const currentLangMeta =
-    SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage) || SUPPORTED_LANGUAGES[0];
-
-  const facilityCount =
-    NIGERIAN_STATES_DATA[selectedState]?.facilities?.length ?? 0;
-
+  const facilityCount = facilitiesForState(selectedState).length;
+  const lgaCount = lgasForState(selectedState).length;
   const pui = privateUi(selectedLanguage);
-
-  useRevealOnScroll();
-
-  const [composerShake, setComposerShake] = useState<boolean>(false);
 
   const guideCards = [
     { id: 'ors', meta: VISUAL_ASSETS.ors, copy: t.visuals.cards.ors },
@@ -495,6 +509,10 @@ export default function App() {
     { id: 'pregnancy', meta: VISUAL_ASSETS.pregnancy, copy: t.visuals.cards.pregnancy },
     { id: 'choking', meta: VISUAL_ASSETS.choking, copy: t.visuals.cards.choking },
   ];
+
+  const heroQuickSymptoms = HERO_QUICK_SYMPTOM_INDICES
+    .map((idx) => t.symptoms[idx])
+    .filter(Boolean);
 
   const toneFor = (name: string) => {
     switch (name) {
@@ -507,9 +525,7 @@ export default function App() {
       case 'wind':
         return 'i-teal';
       case 'heart':
-        return 'i-rose';
       case 'baby':
-        return 'i-rose';
       case 'alert':
         return 'i-rose';
       default:
@@ -540,11 +556,8 @@ export default function App() {
     }
   };
 
-  // Prototype's hint lists the five supported languages — proper nouns, so it
-  // stays correct in every locale without new copy.
-  const supportedLanguageList = SUPPORTED_LANGUAGES.map((l) =>
-    l.name === 'Nigerian Pidgin' ? 'Pidgin' : l.name
-  ).join(', ');
+  const currentLangMeta =
+    SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage) || SUPPORTED_LANGUAGES[0];
 
   const composerHint = isTranscribing
     ? t.chat.placeholderTranscribing
@@ -552,9 +565,10 @@ export default function App() {
     ? mediaRecorderRef.current
       ? t.chat.placeholderRecording
       : t.chat.placeholderListening
-    : supportedLanguageList;
+    : currentLangMeta.localName;
 
   const whatsapp = viewMode === 'whatsapp';
+  const hasConversation = messages.length > 1;
 
   return (
     <div>
@@ -564,12 +578,13 @@ export default function App() {
 
       <Header
         selectedState={selectedState}
-        onSelectState={setSelectedState}
+        onSelectState={handleStateSelect}
         selectedLanguage={selectedLanguage}
         onSelectLanguage={handleLanguageChange}
         onOpenEmergency={() => setIsEmergencyModalOpen(true)}
-        onOpenHospitals={() => setIsHospitalsModalOpen(true)}
+        onOpenHospitals={() => openHospitalsDirectory()}
         onOpenFirstAid={() => openFirstAidGuide('ors')}
+        onOpenPrivate={() => setIsPrivateChatOpen(true)}
       />
 
       <main id="main">
@@ -577,11 +592,10 @@ export default function App() {
         <section className="hero">
           <div className="wrap">
             <div className="hero-grid">
-              <div className="hero-copy reveal" data-reveal>
-                <span className="eyebrow">
-                  <span className="pulse" aria-hidden="true" />
+              <div className="hero-copy">
+                <div className="eyebrow-line">
                   {t.header.badge} · {selectedState} {t.header.stateSuffix}
-                </span>
+                </div>
 
                 <h1>{renderHeroHeadline(t.welcomeShowcase.headline)}</h1>
                 <p className="lede">{t.welcomeShowcase.tagline}</p>
@@ -592,7 +606,7 @@ export default function App() {
                     e.preventDefault();
                     if (!inputText.trim()) {
                       setComposerShake(true);
-                      setTimeout(() => setComposerShake(false), 400);
+                      setTimeout(() => setComposerShake(false), 380);
                       return;
                     }
                     handleSendMessage();
@@ -602,14 +616,11 @@ export default function App() {
                     {t.chat.placeholderIdle}
                   </label>
                   <textarea
+                    ref={textareaRef}
                     id="symptom-input"
                     rows={2}
                     value={inputText}
-                    onChange={(e) => {
-                      setInputText(e.target.value);
-                      e.target.style.height = 'auto';
-                      e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-                    }}
+                    onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -632,11 +643,11 @@ export default function App() {
                     >
                       <span className="mic-ico" aria-hidden="true">
                         {isTranscribing ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : isListening ? (
-                          <MicOff className="w-3 h-3" strokeWidth={2.4} />
+                          <MicOff className="w-3.5 h-3.5" strokeWidth={2.3} />
                         ) : (
-                          <Mic className="w-3 h-3" strokeWidth={2.4} />
+                          <Mic className="w-3.5 h-3.5" strokeWidth={2.3} />
                         )}
                       </span>
                       <span>
@@ -651,20 +662,23 @@ export default function App() {
                     <span className="composer-hint">{composerHint}</span>
 
                     <div className="composer-actions">
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => {
-                          setInputText('');
-                          setRecognitionError(null);
-                        }}
-                      >
-                        {currentLangMeta.flag} {currentLangMeta.localName}
-                      </button>
+                      {inputText.trim().length > 0 && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => {
+                            setInputText('');
+                            setRecognitionError(null);
+                            textareaRef.current?.focus();
+                          }}
+                          aria-label="Clear text"
+                        >
+                          <X className="w-3.5 h-3.5" strokeWidth={2.2} />
+                        </button>
+                      )}
                       <button
                         type="submit"
                         className="btn btn-primary btn-sm"
-                        style={{ height: 40 }}
                         disabled={isLoading || isTranscribing}
                       >
                         {t.chat.triageBtn}
@@ -675,76 +689,28 @@ export default function App() {
                 </form>
 
                 <div className="quick-tags">
-                  <span className="tag-lbl">{t.chat.commonSymptomsTitle}:</span>
-                  {t.symptoms.slice(0, 5).map((item, idx) => (
+                  <span className="tag-lbl">Quick checks:</span>
+                  {heroQuickSymptoms.map((item, idx) => (
                     <button
                       key={`quick-${selectedLanguage}-${idx}`}
                       type="button"
                       className="tag"
-                      aria-pressed={false}
                       disabled={isLoading}
                       onClick={() => handleSendMessage(item.text)}
                     >
-                      <span className={`d ${item.dotColor}`} />
                       {item.label}
                     </button>
                   ))}
                 </div>
 
-                <ul className="trust">
-                  {t.welcomeShowcase.pillars.map((pillar, i) => (
-                    <li key={i}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
-                      {pillar.title}
-                    </li>
-                  ))}
-                </ul>
-
-                <div
-                  className="row-card"
-                  style={{ marginTop: 18, background: 'var(--surface-2)', alignItems: 'center' }}
-                >
-                  <span
-                    className="ico"
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 11,
-                      display: 'grid',
-                      placeItems: 'center',
-                      background: 'var(--surface)',
-                      border: '1px solid var(--line)',
-                      color: 'var(--brand)',
-                      flex: 'none',
-                    }}
-                    aria-hidden="true"
-                  >
-                    <Lock className="w-4 h-4" strokeWidth={2} />
-                  </span>
-                  <div className="rc-body">
-                    <b>{pui.entryTitle}</b>
-                    <span>{pui.entrySub}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => setIsPrivateChatOpen(true)}
-                  >
-                    {pui.entryTitle}
-                    <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.4} />
-                  </button>
-                </div>
-
                 {recognitionError && (
-                  <p className="answer-note" style={{ color: 'var(--danger)', borderTop: 0, marginTop: 10 }}>
+                  <p className="answer-note is-danger" style={{ marginTop: 10 }}>
                     {recognitionError}
                   </p>
                 )}
 
                 {/* ================= CONVERSATION ================= */}
-                <div className={`conv${whatsapp ? ' is-wa' : ''}`}>
+                <div ref={convRef} className={`conv${whatsapp ? ' is-wa' : ''}`}>
                   {whatsapp && (
                     <div className="wa-ribbon">
                       <div>
@@ -767,7 +733,7 @@ export default function App() {
                           key={message.id}
                           triage={message.triageData}
                           onSelectClarifyingQuestion={(q) => handleSendMessage(q)}
-                          onOpenHospitals={() => setIsHospitalsModalOpen(true)}
+                          onOpenHospitals={(st, lga) => openHospitalsDirectory(st, lga)}
                           onOpenFirstAid={(guideId) => openFirstAidGuide(guideId)}
                         />
                       );
@@ -775,21 +741,11 @@ export default function App() {
 
                     if (isAssistant) {
                       return (
-                        <div className="answer" key={message.id}>
+                        <div className={whatsapp ? 'bubble-wa' : 'answer'} key={message.id}>
                           <div className="answer-head">
-                            <span
-                              className="brand-mark"
-                              style={{ width: 24, height: 24, borderRadius: 8 }}
-                              aria-hidden="true"
-                            >
-                              <HeartPulse className="w-3.5 h-3.5" strokeWidth={2.4} />
-                            </span>
+                            <BrandMark size="xs" />
                             <span className="who">NaijaHealth AI</span>
                             <span className="time">{message.timestamp}</span>
-                            <span className="sev is-ok">
-                              <i aria-hidden="true" />
-                              {t.contextBar.routingActive}
-                            </span>
                           </div>
                           <p style={{ whiteSpace: 'pre-line' }}>
                             {renderFormattedText(message.text)}
@@ -818,13 +774,7 @@ export default function App() {
                   {isLoading && (
                     <div className="answer">
                       <div className="answer-head">
-                        <span
-                          className="brand-mark"
-                          style={{ width: 24, height: 24, borderRadius: 8 }}
-                          aria-hidden="true"
-                        >
-                          <HeartPulse className="w-3.5 h-3.5 animate-spin" strokeWidth={2.4} />
-                        </span>
+                        <BrandMark size="xs" />
                         <span className="who">NaijaHealth AI</span>
                         <span className="time">{t.chat.evaluating}</span>
                       </div>
@@ -841,7 +791,7 @@ export default function App() {
 
                 {/* ================= CONVERSATION TOOLBAR ================= */}
                 <div className="conv-toolbar">
-                  <div className="seg" role="group" aria-label="Conversation style">
+                  <div className="seg" role="group" aria-label="Conversation view mode">
                     <button
                       type="button"
                       aria-pressed={viewMode === 'clinic'}
@@ -858,27 +808,47 @@ export default function App() {
                     </button>
                   </div>
 
-                  <button
-                    type="button"
-                    className="chip"
-                    onClick={handleResetChat}
-                    title={t.contextBar.newSession}
-                  >
-                    <RefreshCw className="w-3 h-3" strokeWidth={2.2} />
-                    {t.contextBar.newSession}
-                  </button>
+                  {hasConversation && (
+                    <button
+                      type="button"
+                      className="chip"
+                      onClick={handleResetChat}
+                      title={t.contextBar.newSession}
+                    >
+                      <RefreshCw className="w-3 h-3" strokeWidth={2.2} />
+                      {t.contextBar.newSession}
+                    </button>
+                  )}
 
                   <span className="spacer" />
 
-                  <span className="composer-hint" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <ShieldCheck className="w-3.5 h-3.5" strokeWidth={2.2} style={{ color: 'var(--brand)' }} />
+                  <span className="composer-hint" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <ShieldCheck className="w-3.5 h-3.5 shrink-0" strokeWidth={2.2} style={{ color: 'var(--brand)' }} />
                     {t.chat.footerNcdc}
                   </span>
                 </div>
+
+                <div className="private-link-bar">
+                  <span className="pl-ico" aria-hidden="true">
+                    <Lock className="w-4 h-4" strokeWidth={2} />
+                  </span>
+                  <div className="pl-body">
+                    <b>{pui.entryTitle}</b>
+                    <span>{pui.entrySub}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setIsPrivateChatOpen(true)}
+                  >
+                    {pui.entryTitle}
+                    <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  </button>
+                </div>
               </div>
 
-              {/* Hero visual */}
-              <div className="hero-visual reveal" data-reveal>
+              {/* Clean Hero visual without floating card distractions */}
+              <div className="hero-visual">
                 <figure className="figure">
                   <ResilientImage
                     src={VISUAL_ASSETS.welcome.src}
@@ -892,118 +862,37 @@ export default function App() {
                       <HeartPulse className="w-4 h-4" strokeWidth={2} />
                     </span>
                     <span>
-                      <b>{t.header.subtitle}</b>
-                      <span>{t.welcomeShowcase.tagline}</span>
+                      <b className="tnum">
+                        {selectedState} {t.header.stateSuffix} · {lgaCount} LGAs · {facilityCount}{' '}
+                        {t.header.hospitals}
+                      </b>
+                      <span>{t.header.subtitle}</span>
                     </span>
                   </figcaption>
                 </figure>
-
-                <div className="float-card" aria-hidden="true">
-                  <div className="fc-top">
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        background: 'var(--brand)',
-                        display: 'inline-block',
-                      }}
-                    />
-                    {t.contextBar.routingActive}
-                  </div>
-                  <div className="fc-main">
-                    <MapPin className="pin w-4 h-4" strokeWidth={2.2} />
-                    <span>
-                      {selectedState} {t.header.stateSuffix}
-                    </span>
-                  </div>
-                  <div className="fc-sub">
-                    {facilityCount} {t.header.hospitals}
-                  </div>
-                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ================= THREE WAYS TO GET HELP ================= */}
-        <section className="sec" id="actions">
-          <div className="wrap">
-            <div className="sec-head reveal" data-reveal>
-              <div>
-                <div className="kicker">{t.header.badge}</div>
-                <h2>{t.sectionHeadings.ways}</h2>
-                <p>{t.welcomeShowcase.tagline}</p>
-              </div>
-            </div>
-
-            <div className="actions stagger" data-reveal>
-              <button type="button" className="action" onClick={toggleVoiceRecording}>
-                <span className="ico" aria-hidden="true">
-                  <Mic className="w-5 h-5" strokeWidth={2} />
-                </span>
-                <h3>{t.welcomeShowcase.voiceCta}</h3>
-                <p>{t.welcomeShowcase.pillars[0]?.desc}</p>
-                <span className="go">
-                  {t.chat.triageBtn}
-                  <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.4} />
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className="action rose"
-                onClick={() => openFirstAidGuide('pregnancy')}
-              >
-                <span className="ico" aria-hidden="true">
-                  <Baby className="w-5 h-5" strokeWidth={2} />
-                </span>
-                <h3>{t.welcomeShowcase.pregnancyCta}</h3>
-                <p>{t.visuals.cards.pregnancy.caption}</p>
-                <span className="go">
-                  {t.visuals.openGuideCta}
-                  <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.4} />
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className="action blue"
-                onClick={() => setIsHospitalsModalOpen(true)}
-              >
-                <span className="ico" aria-hidden="true">
-                  <Building2 className="w-5 h-5" strokeWidth={2} />
-                </span>
-                <h3>{t.welcomeShowcase.hospitalsCta}</h3>
-                <p>{t.visuals.cards.hospital.caption}</p>
-                <span className="go">
-                  {t.header.hospitals}
-                  <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.4} />
-                </span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* ================= SYMPTOMS ================= */}
+        {/* ================= COMMON SYMPTOMS ================= */}
         <section className="sec" id="symptoms">
           <div className="wrap">
-            <div className="sec-head reveal" data-reveal>
+            <div className="sec-head">
               <div>
                 <div className="kicker">{t.chat.commonSymptomsTitle}</div>
                 <h2>{t.sectionHeadings.symptoms}</h2>
-                <p>{t.chat.scrollHint}</p>
               </div>
             </div>
 
-            <div className="sym-grid stagger" data-reveal>
+            <div className="sym-grid">
               {t.symptoms.map((item, idx) => (
                 <button
                   key={`sym-${selectedLanguage}-${idx}`}
                   type="button"
                   className="sym"
                   disabled={isLoading}
-                  onClick={() => handleSendMessage(item.text)}
+                  onClick={() => handleSendMessage(item.text, selectedLanguage, true)}
                 >
                   <span className={`ico ${toneFor(item.iconName)}`} aria-hidden="true">
                     {iconFor(item.iconName)}
@@ -1018,10 +907,10 @@ export default function App() {
           </div>
         </section>
 
-        {/* ================= VISUAL CARE GUIDES ================= */}
+        {/* ================= PRACTICAL CARE GUIDES (Balanced 4-card Grid) ================= */}
         <section className="sec" id="guides">
           <div className="wrap">
-            <div className="sec-head reveal" data-reveal>
+            <div className="sec-head">
               <div>
                 <div className="kicker">{t.visuals.guidesTitle}</div>
                 <h2>{t.sectionHeadings.guides}</h2>
@@ -1032,12 +921,12 @@ export default function App() {
                 className="link"
                 onClick={() => setIsHospitalsModalOpen(true)}
               >
-                {t.header.hospitals}
+                {selectedState} {t.header.hospitals}
                 <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.4} />
               </button>
             </div>
 
-            <div className="guide-grid stagger" data-reveal>
+            <div className="guide-grid">
               {guideCards.map((card) => (
                 <button
                   key={card.id}
@@ -1064,61 +953,31 @@ export default function App() {
                   </span>
                 </button>
               ))}
-
-              <button
-                type="button"
-                className="guide-card"
-                onClick={() => setIsHospitalsModalOpen(true)}
-              >
-                <span className="shot">
-                  <ResilientImage
-                    src={VISUAL_ASSETS.hospital.src}
-                    alt={t.visuals.cards.hospital.title}
-                    variant="hospital"
-                    className="w-full h-full"
-                    imgClassName="w-full h-full object-cover"
-                  />
-                </span>
-                <span className="body">
-                  <h3>
-                    {selectedState} {t.header.hospitals}
-                  </h3>
-                  <p>{t.visuals.cards.hospital.caption}</p>
-                  <span className="go">
-                    {t.visuals.hospitalsCta}
-                    <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.4} />
-                  </span>
-                </span>
-              </button>
             </div>
           </div>
         </section>
 
-        {/* ================= HOW IT WORKS ================= */}
+        {/* ================= HOW IT WORKS + EMERGENCY STRIP ================= */}
         <section className="sec" id="how">
           <div className="wrap">
-            <div className="sec-head reveal" data-reveal>
+            <div className="sec-head">
               <div>
-                <div className="kicker">{t.contextBar.routingActive}</div>
+                <div className="kicker">{t.header.badge}</div>
                 <h2>{t.sectionHeadings.how}</h2>
               </div>
             </div>
 
-            <div className="steps stagger" data-reveal>
+            <div className="steps">
               {t.welcomeShowcase.pillars.map((pillar, i) => (
                 <div className="step" key={i}>
                   <span className="num">{i + 1}</span>
                   <h3>{pillar.title}</h3>
                   <p>{pillar.desc}</p>
-                  <span className="meta">
-                    <CheckCheck className="w-3 h-3" strokeWidth={2.2} />
-                    {t.contextBar.voiceAssisted}
-                  </span>
                 </div>
               ))}
             </div>
 
-            <div className="emg-band reveal" id="emergency" data-reveal>
+            <div className="emg-band" id="emergency">
               <span className="ico" aria-hidden="true">
                 <AlertTriangle className="w-5 h-5" strokeWidth={2.1} />
               </span>
@@ -1127,6 +986,7 @@ export default function App() {
                 <p>{t.triageCard.defaultEmergencyWarning}</p>
               </div>
               <a className="btn" href="tel:112">
+                <PhoneCall className="w-4 h-4" strokeWidth={2.2} />
                 {t.contextBar.call112}
               </a>
             </div>
@@ -1140,9 +1000,7 @@ export default function App() {
           <div className="f-grid">
             <div className="f-brand">
               <a className="brand" href="#main" aria-label="NaijaHealth AI">
-                <span className="brand-mark" aria-hidden="true">
-                  <HeartPulse className="w-5 h-5" strokeWidth={2.1} />
-                </span>
+                <BrandMark size="sm" />
                 <span className="brand-name">
                   <b>NaijaHealth</b>
                   <span>AI Triage</span>
@@ -1159,15 +1017,15 @@ export default function App() {
               <button type="button" onClick={() => setIsArtDirectoryOpen(true)}>
                 {pui.artTitle}
               </button>
-              <button type="button" onClick={() => openFirstAidGuide('ors')}>
-                {t.header.firstAid}
+              <button type="button" onClick={() => setIsPrivateChatOpen(true)}>
+                {pui.entryTitle}
               </button>
             </div>
 
             <div className="f-col">
-              <h4>{pui.entryTitle}</h4>
-              <button type="button" onClick={() => setIsPrivateChatOpen(true)}>
-                {pui.entryTitle}
+              <h4>{t.header.firstAid}</h4>
+              <button type="button" onClick={() => openFirstAidGuide('ors')}>
+                {t.visuals.cards.ors.title}
               </button>
               <button type="button" onClick={() => openFirstAidGuide('pregnancy')}>
                 {t.welcomeShowcase.pregnancyCta}
@@ -1178,19 +1036,10 @@ export default function App() {
             </div>
 
             <div className="f-col">
-              <h4>{t.chat.commonSymptomsTitle}</h4>
-              {t.symptoms.slice(0, 4).map((item, idx) => (
-                <button key={`foot-${idx}`} type="button" onClick={() => handleSendMessage(item.text)}>
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="f-col">
               <h4>{t.contextBar.call112}</h4>
-              <a href="tel:112">112</a>
-              <a href="tel:6232">NCDC · 6232</a>
-              <a href="tel:767">Lagos · 767</a>
+              <a className="tnum" href="tel:112">112 · Emergency</a>
+              <a className="tnum" href="tel:6232">6232 · NCDC</a>
+              <a className="tnum" href="tel:767">767 · Lagos Emergency</a>
             </div>
           </div>
 
@@ -1200,8 +1049,7 @@ export default function App() {
               {t.chat.footerCall112} {t.chat.footerImmediate}
             </p>
             <p>
-              {t.chat.footerNcdc}
-              <br />© {new Date().getFullYear()} NaijaHealth AI
+              {t.chat.footerNcdc} · © {new Date().getFullYear()} NaijaHealth AI
             </p>
           </div>
         </div>
@@ -1211,13 +1059,17 @@ export default function App() {
         isOpen={isEmergencyModalOpen}
         onClose={() => setIsEmergencyModalOpen(false)}
         selectedState={selectedState}
-        onSelectSymptomForTriage={(symptom) => handleSendMessage(`${t.emergencyPrefix} ${symptom}`)}
+        onSelectSymptomForTriage={(symptom) =>
+          handleSendMessage(`${t.emergencyPrefix} ${symptom}`, selectedLanguage, true)
+        }
       />
 
       <HospitalDirectoryModal
         isOpen={isHospitalsModalOpen}
         onClose={() => setIsHospitalsModalOpen(false)}
         defaultState={selectedState}
+        defaultLga={selectedLga}
+        lang={selectedLanguage}
       />
 
       <PrivateChatView

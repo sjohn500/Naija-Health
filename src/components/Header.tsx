@@ -1,22 +1,23 @@
 import React from 'react';
 import {
-  HeartPulse,
   AlertTriangle,
   Building2,
   BookOpen,
   MapPin,
   Globe,
   Share2,
-  Check,
   Sun,
   Moon,
   Menu,
   X,
   ChevronDown,
+  Lock,
 } from 'lucide-react';
 import { NIGERIAN_STATES_DATA } from '../data/nigeriaHealthcareData';
 import { TRANSLATIONS } from '../data/localization';
+import { privateUi } from '../data/privateCare';
 import { SupportedLanguage, SUPPORTED_LANGUAGES } from '../types/triage';
+import { BrandMark } from './BrandMark';
 
 interface HeaderProps {
   selectedState: string;
@@ -26,6 +27,7 @@ interface HeaderProps {
   onOpenEmergency: () => void;
   onOpenHospitals: () => void;
   onOpenFirstAid: () => void;
+  onOpenPrivate: () => void;
 }
 
 const Tick: React.FC = () => (
@@ -44,6 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenEmergency,
   onOpenHospitals,
   onOpenFirstAid,
+  onOpenPrivate,
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [openMenu, setOpenMenu] = React.useState<'lang' | 'state' | null>(null);
@@ -61,6 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const states = Object.keys(NIGERIAN_STATES_DATA);
   const t = TRANSLATIONS[selectedLanguage]?.header || TRANSLATIONS.pidgin.header;
+  const pui = privateUi(selectedLanguage);
   const currentLang =
     SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage) || SUPPORTED_LANGUAGES[0];
 
@@ -103,20 +107,12 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="site-header">
       <div className="hdr">
         <a className="brand" href="#main" aria-label="NaijaHealth AI home">
-          <span className="brand-mark" aria-hidden="true">
-            <HeartPulse className="w-5 h-5" strokeWidth={2.1} />
-          </span>
+          <BrandMark size="sm" />
           <span className="brand-name">
             <b>NaijaHealth</b>
             <span>AI Triage</span>
           </span>
         </a>
-
-        <span className="hdr-sep" aria-hidden="true" />
-        <span className="badge-gov">
-          <i aria-hidden="true" />
-          {t.badge}
-        </span>
 
         <nav className="nav" aria-label="Primary">
           <button type="button" onClick={onOpenHospitals}>
@@ -125,8 +121,8 @@ export const Header: React.FC<HeaderProps> = ({
           <button type="button" onClick={onOpenFirstAid}>
             {t.firstAid}
           </button>
-          <button type="button" onClick={handleCopyAppUrl}>
-            {copied ? t.linkCopied : t.shareApp}
+          <button type="button" onClick={onOpenPrivate}>
+            {pui.entryTitle}
           </button>
         </nav>
 
@@ -145,8 +141,8 @@ export const Header: React.FC<HeaderProps> = ({
               aria-label={`Language: ${currentLang.name}`}
               onClick={() => setOpenMenu(openMenu === 'lang' ? null : 'lang')}
             >
-              <Globe className="w-4 h-4" strokeWidth={2} style={{ opacity: 0.65 }} />
-              <span className="select-value">{currentLang.name}</span>
+              <Globe className="w-3.5 h-3.5" strokeWidth={2} style={{ opacity: 0.7 }} />
+              <span className="select-value">{currentLang.localName}</span>
               <ChevronDown className="chev" width={14} height={14} strokeWidth={2.4} />
             </button>
             <div className="select-menu" role="listbox" aria-label="Choose language">
@@ -184,10 +180,8 @@ export const Header: React.FC<HeaderProps> = ({
               aria-label={`State: ${selectedState}`}
               onClick={() => setOpenMenu(openMenu === 'state' ? null : 'state')}
             >
-              <MapPin className="w-4 h-4" strokeWidth={2} style={{ opacity: 0.65 }} />
-              <span className="select-value">
-                {selectedState} {t.stateSuffix}
-              </span>
+              <MapPin className="w-3.5 h-3.5" strokeWidth={2} style={{ opacity: 0.7 }} />
+              <span className="select-value">{selectedState}</span>
               <ChevronDown className="chev" width={14} height={14} strokeWidth={2.4} />
             </button>
             <div className="select-menu" role="listbox" aria-label="Choose state">
@@ -214,20 +208,26 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             className="icon-btn"
             aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            title="Toggle theme"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           >
             {theme === 'dark' ? (
-              <Moon className="w-4 h-4" strokeWidth={2} />
-            ) : (
               <Sun className="w-4 h-4" strokeWidth={2} />
+            ) : (
+              <Moon className="w-4 h-4" strokeWidth={2} />
             )}
           </button>
 
-          <a className="btn-emg" href="tel:112" title={t.emergencyBtn}>
+          <button
+            type="button"
+            className="btn-emg"
+            onClick={onOpenEmergency}
+            aria-label={t.emergencyBtn}
+            title={t.emergencyBtn}
+          >
             <AlertTriangle className="w-4 h-4" strokeWidth={2.2} />
             <span className="emg-label">{t.emergencyBtn}</span>
-          </a>
+          </button>
 
           <button
             type="button"
@@ -248,42 +248,57 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="mobile-panel" data-open={mobileOpen ? 'true' : 'false'}>
         <button
           type="button"
+          className="mobile-nav-item"
           onClick={() => {
             onOpenHospitals();
             setMobileOpen(false);
           }}
         >
-          <Building2 className="w-4 h-4 inline mr-2" strokeWidth={2} />
+          <Building2 className="w-4 h-4" strokeWidth={2} />
           {t.hospitals}
         </button>
         <button
           type="button"
+          className="mobile-nav-item"
           onClick={() => {
             onOpenFirstAid();
             setMobileOpen(false);
           }}
         >
-          <BookOpen className="w-4 h-4 inline mr-2" strokeWidth={2} />
+          <BookOpen className="w-4 h-4" strokeWidth={2} />
           {t.firstAid}
         </button>
         <button
           type="button"
+          className="mobile-nav-item"
+          onClick={() => {
+            onOpenPrivate();
+            setMobileOpen(false);
+          }}
+        >
+          <Lock className="w-4 h-4" strokeWidth={2} />
+          {pui.entryTitle}
+        </button>
+        <button
+          type="button"
+          className="mobile-nav-item"
           onClick={() => {
             onOpenEmergency();
             setMobileOpen(false);
           }}
         >
-          <AlertTriangle className="w-4 h-4 inline mr-2" strokeWidth={2} />
+          <AlertTriangle className="w-4 h-4" strokeWidth={2} style={{ color: 'var(--danger)' }} />
           {t.emergencyBtn}
         </button>
         <button
           type="button"
+          className="mobile-nav-item"
           onClick={() => {
             handleCopyAppUrl();
             setMobileOpen(false);
           }}
         >
-          <Share2 className="w-4 h-4 inline mr-2" strokeWidth={2} />
+          <Share2 className="w-4 h-4" strokeWidth={2} />
           {copied ? t.linkCopied : t.shareApp}
         </button>
 
@@ -291,7 +306,6 @@ export const Header: React.FC<HeaderProps> = ({
           <div
             className="select"
             data-open={openMenu === 'lang' ? 'true' : 'false'}
-            style={{ flex: 1 }}
             onClick={stop}
           >
             <button
@@ -300,8 +314,8 @@ export const Header: React.FC<HeaderProps> = ({
               aria-expanded={openMenu === 'lang'}
               onClick={() => setOpenMenu(openMenu === 'lang' ? null : 'lang')}
             >
-              <span className="select-value">{currentLang.name}</span>
-              <span style={{ marginLeft: 'auto', opacity: 0.55 }}>Language</span>
+              <span className="select-value">{currentLang.localName}</span>
+              <ChevronDown className="chev" width={14} height={14} strokeWidth={2.4} />
             </button>
             <div className="select-menu" role="listbox">
               {SUPPORTED_LANGUAGES.map((lang) => (
@@ -326,7 +340,6 @@ export const Header: React.FC<HeaderProps> = ({
           <div
             className="select"
             data-open={openMenu === 'state' ? 'true' : 'false'}
-            style={{ flex: 1 }}
             onClick={stop}
           >
             <button
@@ -338,7 +351,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="select-value">
                 {selectedState} {t.stateSuffix}
               </span>
-              <span style={{ marginLeft: 'auto', opacity: 0.55 }}>State</span>
+              <ChevronDown className="chev" width={14} height={14} strokeWidth={2.4} />
             </button>
             <div className="select-menu" role="listbox">
               {states.map((st) => (

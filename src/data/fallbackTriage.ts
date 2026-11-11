@@ -1,5 +1,6 @@
 import { SupportedLanguage, TriageResult } from '../types/triage';
 import { NIGERIAN_STATES_DATA } from './nigeriaHealthcareData';
+import { STATE_LGAS, facilitiesForLga } from './facilityDirectory';
 
 export function getSectionHeaders(language: SupportedLanguage): {
   causes: string;
@@ -147,48 +148,173 @@ export function detectLocalRedFlags(text: string): { isRedFlag: boolean; matched
   return { isRedFlag: false };
 }
 
-// Extract or match Nigerian state from text
-export function detectStateFromText(text: string): string | undefined {
+const COLLISION_LGA_TOKENS = new Set([
+  'abi', 'ido', 'oyo', 'iga', 'isi', 'ini', 'isa', 'asa', 'ala', 'tai', 'aro',
+  'ojo', 'ode', 'ogo', 'obi', 'iba', 'oro', 'owe', 'oba', 'aga', 'ita', 'iyo',
+  'iya', 'uwa', 'ugo', 'eke', 'efon', 'age', 'oya', 'koko', 'war', 'way', 'man',
+  'ana', 'ama', 'oke', 'oku', 'owo', 'iku', 'ara', 'iru', 'ibe', 'idu', 'ife',
+  'ike', 'ika', 'ime', 'inu', 'ori', 'eje', 'ohu', 'ona', 'ori', 'ire', 'eto',
+  'oti', 'ota', 'apa', 'umu', 'ada', 'abo', 'aga', 'ali', 'ano', 'aso', 'ata',
+]);
+
+type LgaHit = { state: string; lga: string; norm: string };
+
+const { UNIQUE_LGA_MATCHES, STATE_LGA_PATTERNS } = (() => {
+  const counts = new Map<string, LgaHit[]>();
+  const byState = new Map<string, LgaHit[]>();
+
+  const registerPattern = (state: string, lga: string, rawPattern: string) => {
+    const norm = rawPattern.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (norm.length < 4 || COLLISION_LGA_TOKENS.has(norm)) return;
+    const hit: LgaHit = { state, lga, norm };
+    const arr = counts.get(norm) || [];
+    if (!arr.some((x) => x.state === state && x.lga === lga)) {
+      arr.push(hit);
+      counts.set(norm, arr);
+    }
+    const stArr = byState.get(state) || [];
+    if (!stArr.some((x) => x.norm === norm && x.lga === lga)) {
+      stArr.push(hit);
+      byState.set(state, stArr);
+    }
+  };
+
+  for (const [state, lgas] of Object.entries(STATE_LGAS)) {
+    for (const lga of lgas) {
+      registerPattern(state, lga, lga);
+      const spaced = lga.replace(/[/()-]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (spaced && spaced !== lga) {
+        registerPattern(state, lga, spaced);
+      }
+      const noSpace = spaced.replace(/\s+/g, '');
+      if (noSpace.length >= 6) {
+        registerPattern(state, lga, noSpace);
+      }
+    }
+  }
+
+  // Safe FCT districts & major LGA city centers inside single states
+  const extraAliases: Array<[string, string, string]> = [
+    ['FCT - Abuja', 'Abuja Municipal Area Council (AMAC)', 'amac'],
+    ['FCT - Abuja', 'Abuja Municipal Area Council (AMAC)', 'garki'],
+    ['FCT - Abuja', 'Abuja Municipal Area Council (AMAC)', 'wuse'],
+    ['FCT - Abuja', 'Abuja Municipal Area Council (AMAC)', 'maitama'],
+    ['FCT - Abuja', 'Abuja Municipal Area Council (AMAC)', 'asokoro'],
+    ['FCT - Abuja', 'Abuja Municipal Area Council (AMAC)', 'nyanya'],
+    ['FCT - Abuja', 'Abuja Municipal Area Council (AMAC)', 'gwarinpa'],
+    ['FCT - Abuja', 'Bwari', 'kubwa'],
+    ['Ogun', 'Ado Odo/Ota', 'sango ota'],
+    ['Ogun', 'Ado Odo/Ota', 'ado odo ota'],
+    ['Lagos', 'Eti-Osa', 'lekki'],
+    ['Lagos', 'Eti-Osa', 'victoria island'],
+    ['Lagos', 'Lagos Mainland', 'yaba'],
+    ['Lagos', 'Lagos Mainland', 'ebute metta'],
+    ['Lagos', 'Kosofe', 'gbagada'],
+    ['Lagos', 'Kosofe', 'ketu'],
+    ['Lagos', 'Alimosho', 'igando'],
+    ['Rivers', 'Port Harcourt', 'pitakwa'],
+    ['Anambra', 'Onitsha North', 'onitsha'],
+    ['Anambra', 'Nnewi North', 'nnewi'],
+  ];
+  for (const [st, lga, alias] of extraAliases) {
+    registerPattern(st, lga, alias);
+  }
+
+  const unique: LgaHit[] = [];
+  for (const [, hits] of counts.entries()) {
+    if (hits.length === 1) {
+      unique.push(hits[0]);
+    }
+  }
+  unique.sort((a, b) => b.norm.length - a.norm.length);
+
+  const perState = new Map<string, LgaHit[]>();
+  for (const [st, hits] of byState.entries()) {
+    perState.set(
+      st,
+      [...hits].sort((a, b) => b.norm.length - a.norm.length)
+    );
+  }
+
+  return { UNIQUE_LGA_MATCHES: unique, STATE_LGA_PATTERNS: perState };
+})();
+
+function containsWholePhrase(normalizedHaystack: string, phrase: string): boolean {
+  if (!normalizedHaystack.includes(phrase)) return false;
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`).test(normalizedHaystack);
+}
+
+function detectExplicitStateOnly(text: string): string | undefined {
   const lower = text.toLowerCase();
   for (const stateName of Object.keys(NIGERIAN_STATES_DATA)) {
-    if (lower.includes(stateName.toLowerCase())) {
+    if (containsWholePhrase(lower, stateName.toLowerCase())) {
       return stateName;
     }
     const stateInfo = NIGERIAN_STATES_DATA[stateName];
-    if (stateInfo.capital && lower.includes(stateInfo.capital.toLowerCase())) {
+    if (stateInfo.capital && containsWholePhrase(lower, stateInfo.capital.toLowerCase())) {
       return stateName;
     }
     for (const fac of stateInfo.facilities) {
-      if (lower.includes(fac.city.toLowerCase())) {
+      if (fac.city && containsWholePhrase(lower, fac.city.toLowerCase())) {
         return stateName;
       }
     }
   }
-  if (lower.includes('abuja') || lower.includes('fct') || lower.includes('gwagwalada')) return 'FCT - Abuja';
-  if (lower.includes('lagos') || lower.includes('ikeja') || lower.includes('yaba') || lower.includes('lekki') || lower.includes('surulere') || lower.includes('ikorodu') || lower.includes('eko')) return 'Lagos';
-  if (lower.includes('port harcourt') || lower.includes('pitakwa')) return 'Rivers';
-  if (lower.includes('ibadan') || lower.includes('ogbomoso')) return 'Oyo';
-  if (lower.includes('onitsha') || lower.includes('awka') || lower.includes('nnewi')) return 'Anambra';
-  if (lower.includes('enugu') || lower.includes('nsukka')) return 'Enugu';
-  if (lower.includes('owerri') || lower.includes('orlu') || lower.includes('okigwe')) return 'Imo';
-  if (lower.includes('benin') || lower.includes('irrua')) return 'Edo';
-  if (lower.includes('zaria') || lower.includes('kaduna')) return 'Kaduna';
-  if (lower.includes('warri') || lower.includes('asaba')) return 'Delta';
-  if (lower.includes('aba') || lower.includes('umuahia')) return 'Abia';
-  if (lower.includes('jos')) return 'Plateau';
-  if (lower.includes('kano')) return 'Kano';
-  if (lower.includes('abeokuta') || lower.includes('ijebu')) return 'Ogun';
-  if (lower.includes('ilorin')) return 'Kwara';
-  if (lower.includes('calabar')) return 'Cross River';
-  if (lower.includes('uyo') || lower.includes('eket')) return 'Akwa Ibom';
-  if (lower.includes('maiduguri')) return 'Borno';
-  if (lower.includes('sokoto')) return 'Sokoto';
-  if (lower.includes('bauchi')) return 'Bauchi';
-  if (lower.includes('makurdi')) return 'Benue';
-  if (lower.includes('abakaliki')) return 'Ebonyi';
-  if (lower.includes('akure') || lower.includes('ondo')) return 'Ondo';
-  if (lower.includes('osogbo') || lower.includes('ife')) return 'Osun';
+  if (/\b(abuja|fct|gwagwalada)\b/i.test(lower)) return 'FCT - Abuja';
+  if (/\b(lagos|ikeja|yaba|lekki|surulere|ikorodu|eko|alimosho)\b/i.test(lower)) return 'Lagos';
+  if (/\b(port harcourt|pitakwa|obio)\b/i.test(lower)) return 'Rivers';
+  if (/\b(ibadan|ogbomoso)\b/i.test(lower)) return 'Oyo';
+  if (/\b(onitsha|awka|nnewi)\b/i.test(lower)) return 'Anambra';
+  if (/\b(enugu|nsukka)\b/i.test(lower)) return 'Enugu';
+  if (/\b(owerri|orlu|okigwe)\b/i.test(lower)) return 'Imo';
+  if (/\b(benin|irrua)\b/i.test(lower)) return 'Edo';
+  if (/\b(zaria|kaduna|kafanchan)\b/i.test(lower)) return 'Kaduna';
+  if (/\b(warri|asaba|sapele)\b/i.test(lower)) return 'Delta';
+  if (/\b(aba|umuahia)\b/i.test(lower)) return 'Abia';
+  if (/\b(jos|pankshin)\b/i.test(lower)) return 'Plateau';
+  if (/\bkano\b/i.test(lower)) return 'Kano';
+  if (/\b(abeokuta|ijebu|sagamu|shagamu)\b/i.test(lower)) return 'Ogun';
+  if (/\bilorin\b/i.test(lower)) return 'Kwara';
+  if (/\bcalabar\b/i.test(lower)) return 'Cross River';
+  if (/\b(uyo|eket|ikot ekpene)\b/i.test(lower)) return 'Akwa Ibom';
+  if (/\bmaiduguri\b/i.test(lower)) return 'Borno';
+  if (/\bsokoto\b/i.test(lower)) return 'Sokoto';
+  if (/\bbauchi\b/i.test(lower)) return 'Bauchi';
+  if (/\b(makurdi|gboko|otukpo)\b/i.test(lower)) return 'Benue';
+  if (/\b(abakaliki|afikpo)\b/i.test(lower)) return 'Ebonyi';
+  if (/\b(akure|ondo|owo)\b/i.test(lower)) return 'Ondo';
+  if (/\b(osogbo|oshogbo|ile-ife|ilesa)\b/i.test(lower)) return 'Osun';
   return undefined;
+}
+
+/** Detect Nigerian State and specific Local Government Area (LGA) when unambiguous in text. */
+export function detectLocationFromText(text: string): { state?: string; lga?: string } {
+  const normalized = text.toLowerCase().replace(/[/]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const explicitState = detectExplicitStateOnly(text);
+
+  if (explicitState) {
+    const candidates = STATE_LGA_PATTERNS.get(explicitState) || [];
+    for (const c of candidates) {
+      if (containsWholePhrase(normalized, c.norm)) {
+        return { state: explicitState, lga: c.lga };
+      }
+    }
+    return { state: explicitState };
+  }
+
+  for (const hit of UNIQUE_LGA_MATCHES) {
+    if (containsWholePhrase(normalized, hit.norm)) {
+      return { state: hit.state, lga: hit.lga };
+    }
+  }
+
+  return {};
+}
+
+// Extract or match Nigerian state from text
+export function detectStateFromText(text: string): string | undefined {
+  return detectLocationFromText(text).state;
 }
 
 type CategoryKey = 'child_fever' | 'pregnancy' | 'purging' | 'fever' | 'cough' | 'joint_pain' | 'general';
@@ -247,11 +373,25 @@ function detectCategory(text: string): CategoryKey {
 export function buildFallbackTriage(
   message: string,
   stateName: string = 'Lagos',
-  language: SupportedLanguage = 'pidgin'
+  language: SupportedLanguage = 'pidgin',
+  lgaName?: string
 ): TriageResult {
   const redFlag = detectLocalRedFlags(message);
   const stateData = NIGERIAN_STATES_DATA[stateName] || NIGERIAN_STATES_DATA['Lagos'];
-  const topFacilities = stateData.facilities.map((f) => `${f.name} (${f.city})`).slice(0, 3);
+  const detectedLoc = detectLocationFromText(message);
+  const resolvedLga =
+    lgaName && STATE_LGAS[stateName]?.includes(lgaName)
+      ? lgaName
+      : detectedLoc.state === stateName
+      ? detectedLoc.lga
+      : undefined;
+
+  const lgaFacilities = resolvedLga ? facilitiesForLga(stateName, resolvedLga) : [];
+  const lgaLabels = lgaFacilities
+    .slice(0, 2)
+    .map((f) => `${f.name} (${resolvedLga} LGA)`);
+  const flagshipLabels = stateData.facilities.map((f) => `${f.name} (${f.city})`);
+  const topFacilities = Array.from(new Set([...lgaLabels, ...flagshipLabels])).slice(0, 3);
   const headers = getSectionHeaders(language);
   const hotlines = stateData.emergencyHotlines.join(', ');
   const primaryHospital = topFacilities[0] || `Nearest General Hospital in ${stateName}`;
@@ -361,6 +501,7 @@ export function buildFallbackTriage(
       actionPlan: c.action,
       recommendedFacilities: topFacilities,
       detectedLocation: stateName,
+      detectedLga: resolvedLga,
       clarifyingQuestions: [],
       disclaimer: headers.disclaimer,
       fullFormattedResponse: buildFormattedResponse(language, {
@@ -810,6 +951,7 @@ export function buildFallbackTriage(
     clarifyingQuestions: c.questions,
     recommendedFacilities: topFacilities,
     detectedLocation: stateName,
+    detectedLga: resolvedLga,
     disclaimer: headers.disclaimer,
     fullFormattedResponse: buildFormattedResponse(language, {
       isRedFlag: false,
