@@ -12,6 +12,7 @@ import {
   PhoneCall,
   Loader2,
   BookOpen,
+  Pill,
 } from 'lucide-react';
 import { TriageResult, SupportedLanguage } from '../types/triage';
 import { TRANSLATIONS } from '../data/localization';
@@ -24,6 +25,7 @@ interface TriageResultViewProps {
   onSelectClarifyingQuestion: (question: string) => void;
   onOpenHospitals: (state?: string, lga?: string) => void;
   onOpenFirstAid?: (guideId: string) => void;
+  onOpenPharmacy?: () => void;
   /**
    * Private mode: no read-aloud (it would disclose in a shared room) and the
    * share action copies appointment details only, never the condition.
@@ -36,6 +38,7 @@ export const TriageResultView: React.FC<TriageResultViewProps> = ({
   onSelectClarifyingQuestion,
   onOpenHospitals,
   onOpenFirstAid,
+  onOpenPharmacy,
   discreet = false,
 }) => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -438,6 +441,18 @@ _${triage.disclaimer || tc.defaultDisclaimer}_`;
           <Building2 className="w-3.5 h-3.5" strokeWidth={2.2} />
           {tc.browseHospitals}
         </button>
+
+        {!triage.isRedFlag && onOpenPharmacy && (
+          <button
+            type="button"
+            onClick={() => onOpenPharmacy()}
+            className="btn btn-outline btn-sm"
+            title="View genuine OTC medicines & pharmacist advice"
+          >
+            <Pill className="w-3.5 h-3.5" strokeWidth={2.2} style={{ color: 'var(--brand)' }} />
+            {tc.checkPharmacy || 'Chemist & OTC Drugs'}
+          </button>
+        )}
 
         <button type="button" onClick={handleCopyWhatsApp} className="btn btn-ghost btn-sm">
           {copied ? (

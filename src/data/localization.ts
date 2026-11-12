@@ -27,6 +27,7 @@ export interface LanguageStrings {
     subtitle: string;
     hospitals: string;
     firstAid: string;
+    pharmacy: string;
     shareApp: string;
     shareShort: string;
     linkCopied: string;
@@ -82,6 +83,7 @@ export interface LanguageStrings {
     homeWithheld: string;
     defaultHomeRest: string;
     browseHospitals: string;
+    checkPharmacy?: string;
     clarifyingTitle: string;
     clarifyPrefix: string;
     defaultDisclaimer: string;
@@ -140,6 +142,7 @@ Tell me any sickness at all — **hot body, belle trouble, small pikin fever, or
       subtitle: 'Empathetic Medical Navigation • Nigeria',
       hospitals: 'Hospitals',
       firstAid: 'First Aid',
+      pharmacy: 'Chemist / Drugs',
       shareApp: 'Share App',
       shareShort: 'Share',
       linkCopied: 'Link Copied!',
@@ -195,6 +198,7 @@ Tell me any sickness at all — **hot body, belle trouble, small pikin fever, or
       homeWithheld: 'All house treatment cancelled because na dangerous emergency sign! Rush go hospital emergency room now-now.',
       defaultHomeRest: 'Rest well and drink plenty clean water.',
       browseHospitals: 'Check Hospitals',
+      checkPharmacy: 'Chemist & OTC Drugs',
       clarifyingTitle: 'Small question make I understand well:',
       clarifyPrefix: 'Answer:',
       defaultDisclaimer: 'Abeg remember: I be NaijaHealth AI assistant o, I no be real medical doctor. If body no do you well or the matter tight, go meet doctor for hospital or call 112 sharp-sharp.',
@@ -351,6 +355,7 @@ Tell me about **any illness or symptom** — whether fever, stomach pain, child 
       subtitle: 'Empathetic Medical Navigation • Nigeria',
       hospitals: 'Hospitals',
       firstAid: 'First Aid',
+      pharmacy: 'Pharmacy & Drugs',
       shareApp: 'Share App',
       shareShort: 'Share',
       linkCopied: 'Link Copied!',
@@ -406,6 +411,7 @@ Tell me about **any illness or symptom** — whether fever, stomach pain, child 
       homeWithheld: 'Home remedies are withheld due to emergency warning signs. Rush immediately to emergency care.',
       defaultHomeRest: 'Ensure adequate rest and hydration with clean drinking water.',
       browseHospitals: 'Browse Hospitals',
+      checkPharmacy: 'Pharmacy & OTC Guide',
       clarifyingTitle: 'Clarifying details:',
       clarifyPrefix: 'Answer:',
       defaultDisclaimer: 'Medical Disclaimer: NaijaHealth AI is an informational triage support tool and does not provide formal medical diagnoses or prescriptions. In emergencies, visit the nearest hospital or call 112 immediately.',
@@ -562,6 +568,7 @@ Fada min **kowace irin rashin lafiya** — kamar zazzabi, ciwon ciki, lafiyar ya
       subtitle: 'Taimakon Gaggawa na Kiwon Lafiya • Najeriya',
       hospitals: 'Asibitoci',
       firstAid: 'Taimakon Farko',
+      pharmacy: 'Kantin Magani',
       shareApp: 'Tura Abokai',
       shareShort: 'Tura',
       linkCopied: 'An Kwafa!',
@@ -617,6 +624,7 @@ Fada min **kowace irin rashin lafiya** — kamar zazzabi, ciwon ciki, lafiyar ya
       homeWithheld: 'An soke duk maganin gida saboda wannan alamun gaggawa ne! Yi maza-maza zuwa dakin gaggawa na asibiti yanzu.',
       defaultHomeRest: 'Huta sosai kuma sha ruwa mai tsabta da yawa.',
       browseHospitals: 'Duba Asibitoci',
+      checkPharmacy: 'Duba Magungunan Sauki',
       clarifyingTitle: 'Karin bayani:',
       clarifyPrefix: 'Amsa:',
       defaultDisclaimer: 'Tunatarwa: Ni mataimakin AI ne (NaijaHealth AI), ba likita na gaskiya ba. Idan jiki yayi tsanani, tafi asibiti kusa da kai ko kira 112.',
@@ -773,6 +781,7 @@ Sọ **irú àìsàn èyíkéyìí** fún mi — yálà ibà, inú rírun, ìt�
       subtitle: 'Ìtọ́jú Àìsàn Pẹ̀lú Àánú • Nàìjíríà',
       hospitals: 'Ilé-ìwòsàn',
       firstAid: 'Ìtọ́jú Àkọ́kọ́',
+      pharmacy: 'Ile Oogun',
       shareApp: 'Pín Rẹ̀',
       shareShort: 'Pín',
       linkCopied: 'A Ti Da Kọ́ọ̀pì!',
@@ -828,6 +837,7 @@ Sọ **irú àìsàn èyíkéyìí** fún mi — yálà ibà, inú rírun, ìt�
       homeWithheld: 'A ti dá gbogbo ìtọ́jú ilé dúró nítorí àmì ewu pàjáwìrì! Ẹ sáré lọ sí yàrá pàjáwìrì ilé-ìwòsàn báyìí.',
       defaultHomeRest: 'Ẹ sinmi dáadáa kí ẹ sì mu omi mímọ́ púpọ̀.',
       browseHospitals: 'Wo Ilé-ìwòsàn',
+      checkPharmacy: 'Wo Awọn Oogun To Wọpọ',
       clarifyingTitle: 'Àlàyé síwájú si:',
       clarifyPrefix: 'Ìdáhùn:',
       defaultDisclaimer: 'Ìkìlọ̀: Èmi jẹ́ olùrànlọ́wọ́ AI, mi kìí ṣe dọ́kítà gidi. Tí ara bá le koko, ẹ lọ sí ilé-ìwòsàn tàbí kí ẹ pe 112 lẹ́sẹ̀kẹsẹ̀.',
@@ -984,6 +994,7 @@ Gwa m **ụdị ọrịa ọ bụla** — dịka ahụ ọkụ, afọ mgbu, nlek
       subtitle: 'Nnyemaaka Ahụike Dị Mfe • Naịjirịa',
       hospitals: 'Ụlọ Ọgwụ',
       firstAid: 'Nlekọta Mbụ',
+      pharmacy: 'Ụlọ Ọgwụ Ahịa',
       shareApp: 'Kesaa App',
       shareShort: 'Kesaa',
       linkCopied: 'E Detụrụ Ya!',
@@ -1039,6 +1050,7 @@ Gwa m **ụdị ọrịa ọ bụla** — dịka ahụ ọkụ, afọ mgbu, nlek
       homeWithheld: 'A kagbuola ọgwụ ụlọ niile n' + '\'' + 'ihi na nke a bụ mberede dị egwu! Gbaa ọsọ gaa ụlọ ọgwụ ozugbo.',
       defaultHomeRest: 'Zuo ike nke ọma ma ṅụọ mmiri dị ọcha nke ukwuu.',
       browseHospitals: 'Chọta Ụlọ Ọgwụ',
+      checkPharmacy: 'Lee Ọgwụ Ndị A Kwadoro',
       clarifyingTitle: 'Ajụjụ ntakịrị iji ghọta nke ọma:',
       clarifyPrefix: 'Azịza:',
       defaultDisclaimer: 'Rịba ama: Abụ m onye inyeaka AI, abụghị m ezigbo dọkịta. Ọ bụrụ na ahụ adịghị gị mma nke ukwuu, gaa ụlọ ọgwụ ma ọ bụ kpọọ 112 ugbu a.',

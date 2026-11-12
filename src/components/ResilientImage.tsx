@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
-import { HeartPulse, Droplet, Thermometer, ShieldAlert, Building2, Baby } from 'lucide-react';
+import { HeartPulse, Droplet, Thermometer, ShieldAlert, Building2, Baby, Pill, Sparkles } from 'lucide-react';
 
-export type VisualFallbackVariant = 'welcome' | 'ors' | 'sponging' | 'choking' | 'pregnancy' | 'hospital';
+export type VisualFallbackVariant =
+  | 'welcome'
+  | 'ors'
+  | 'sponging'
+  | 'choking'
+  | 'pregnancy'
+  | 'hospital'
+  | 'pharmacy'
+  | 'pill'
+  | 'sachet'
+  | 'suspension';
 
 interface ResilientImageProps {
   src: string;
@@ -26,6 +36,7 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
   const getFallbackVisual = () => {
     switch (variant) {
       case 'ors':
+      case 'sachet':
         return {
           tint: 'var(--blue-soft)',
           icon: <Droplet className="w-7 h-7" style={{ color: 'var(--blue)' }} />,
@@ -49,6 +60,13 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
         return {
           tint: 'var(--danger-soft)',
           icon: <Building2 className="w-7 h-7" style={{ color: 'var(--danger)' }} />,
+        };
+      case 'pill':
+      case 'suspension':
+      case 'pharmacy':
+        return {
+          tint: 'var(--brand-soft)',
+          icon: <Pill className="w-7 h-7" style={{ color: 'var(--brand)' }} />,
         };
       case 'welcome':
       default:

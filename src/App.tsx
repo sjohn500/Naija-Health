@@ -31,10 +31,20 @@ import { BrandMark } from './components/BrandMark';
 import { EmergencyModal } from './components/EmergencyModal';
 import { HospitalDirectoryModal } from './components/HospitalDirectoryModal';
 import { FirstAidModal } from './components/FirstAidModal';
+import { PharmacyGuideModal } from './components/PharmacyGuideModal';
 import { PrivateChatView } from './components/PrivateChatView';
 import { ArtDirectory } from './components/ArtDirectory';
 import { TriageResultView } from './components/TriageResultView';
 import { ResilientImage } from './components/ResilientImage';
+import { OpeningLandingView } from './components/OpeningLandingView';
+import { AuthModal } from './components/AuthModal';
+import { AppUser } from './types/auth';
+import {
+  getStoredUser,
+  subscribeToAuth,
+  signOutUser,
+  signInAsGuest,
+} from './services/authService';
 import { ChatMessage, TriageResult, SupportedLanguage, SUPPORTED_LANGUAGES } from './types/triage';
 import { NIGERIAN_STATES_DATA } from './data/nigeriaHealthcareData';
 import { facilitiesForState, lgasForState } from './data/facilityDirectory';
@@ -73,6 +83,56 @@ export default function App() {
   const [isPrivateChatOpen, setIsPrivateChatOpen] = useState<boolean>(false);
   const [isArtDirectoryOpen, setIsArtDirectoryOpen] = useState<boolean>(false);
   const [firstAidGuideId, setFirstAidGuideId] = useState<string>('ors');
+  const [isPharmacyModalOpen, setIsPharmacyModalOpen] = useState<boolean>(false);
+  const [pharmacyCategory, setPharmacyCategory] = useState<string>('all');
+
+  // User Authentication & Opening Portal State
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => getStoredUser());
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'register'>('signin');
+  const [authFeatureHint, setAuthFeatureHint] = useState<string | undefined>(undefined);
+  const [pendingActionAfterAuth, setPendingActionAfterAuth] = useState<(() => void) | null>(null);
+
+  useEffect(() => {
+    const unsub = subscribeToAuth((user) => {
+      setCurrentUser(user);
+    });
+    return () => unsub();
+  }, []);
+
+  const openAuthModal = (
+    mode: 'signin' | 'register' = 'signin',
+    featureHint?: string,
+    onComplete?: () => void
+  ) => {
+    setAuthModalMode(mode);
+    setAuthFeatureHint(featureHint);
+    setPendingActionAfterAuth(onComplete ? () => onComplete : null);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleQuickGuestEnter = (onComplete?: () => void) => {
+    signInAsGuest(selectedState).then((user) => {
+      setCurrentUser(user);
+      if (onComplete) {
+        onComplete();
+      }
+    });
+  };
+
+  const handleSignOut = () => {
+    signOutUser().then(() => {
+      setCurrentUser(null);
+    });
+  };
+
+  const handleAuthSuccess = (user: AppUser) => {
+    setCurrentUser(user);
+    if (pendingActionAfterAuth) {
+      pendingActionAfterAuth();
+      setPendingActionAfterAuth(null);
+    }
+  };
 
   const handleStateSelect = (nextState: string) => {
     setSelectedState(nextState);
@@ -94,6 +154,11 @@ export default function App() {
       setFirstAidGuideId(guideId);
     }
     setIsFirstAidModalOpen(true);
+  };
+
+  const openPharmacyGuide = (category: string = 'all') => {
+    setPharmacyCategory(category);
+    setIsPharmacyModalOpen(true);
   };
 
   const convRef = useRef<HTMLDivElement>(null);
@@ -570,6 +635,43 @@ export default function App() {
   const whatsapp = viewMode === 'whatsapp';
   const hasConversation = messages.length > 1;
 
+  if (!currentUser) {
+    return (
+      <div>
+        <OpeningLandingView
+          selectedLanguage={selectedLanguage}
+          onSelectLanguage={handleLanguageChange}
+          selectedState={selectedState}
+          onSelectState={handleStateSelect}
+          onOpenAuth={(mode, hint, onComplete) => openAuthModal(mode, hint, onComplete)}
+          onQuickGuestEnter={handleQuickGuestEnter}
+          onOpenEmergency={() => setIsEmergencyModalOpen(true)}
+        />
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSuccess={handleAuthSuccess}
+          selectedLanguage={selectedLanguage}
+          defaultState={selectedState}
+          initialMode={authModalMode}
+          featureHint={authFeatureHint}
+        />
+
+        <EmergencyModal
+          isOpen={isEmergencyModalOpen}
+          onClose={() => setIsEmergencyModalOpen(false)}
+          selectedState={selectedState}
+          onSelectSymptomForTriage={(symptom) => {
+            handleQuickGuestEnter(() => {
+              handleSendMessage(`${t.emergencyPrefix} ${symptom}`, selectedLanguage, true);
+            });
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div>
       <a className="skip" href="#main">
@@ -585,6 +687,10 @@ export default function App() {
         onOpenHospitals={() => openHospitalsDirectory()}
         onOpenFirstAid={() => openFirstAidGuide('ors')}
         onOpenPrivate={() => setIsPrivateChatOpen(true)}
+        onOpenPharmacy={() => openPharmacyGuide('all')}
+        currentUser={currentUser}
+        onSignOut={handleSignOut}
+        onOpenAuth={() => openAuthModal('signin')}
       />
 
       <main id="main">
@@ -735,6 +841,7 @@ export default function App() {
                           onSelectClarifyingQuestion={(q) => handleSendMessage(q)}
                           onOpenHospitals={(st, lga) => openHospitalsDirectory(st, lga)}
                           onOpenFirstAid={(guideId) => openFirstAidGuide(guideId)}
+                          onOpenPharmacy={() => openPharmacyGuide('all')}
                         />
                       );
                     }
@@ -1027,6 +1134,9 @@ export default function App() {
               <button type="button" onClick={() => openFirstAidGuide('ors')}>
                 {t.visuals.cards.ors.title}
               </button>
+              <button type="button" onClick={() => openPharmacyGuide('all')}>
+                {t.header.pharmacy || 'Chemist & OTC Drugs'}
+              </button>
               <button type="button" onClick={() => openFirstAidGuide('pregnancy')}>
                 {t.welcomeShowcase.pregnancyCta}
               </button>
@@ -1092,6 +1202,23 @@ export default function App() {
         onClose={() => setIsFirstAidModalOpen(false)}
         initialGuideId={firstAidGuideId}
         selectedLanguage={selectedLanguage}
+      />
+
+      <PharmacyGuideModal
+        isOpen={isPharmacyModalOpen}
+        onClose={() => setIsPharmacyModalOpen(false)}
+        selectedLanguage={selectedLanguage}
+        initialCategory={pharmacyCategory as any}
+      />
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+        selectedLanguage={selectedLanguage}
+        defaultState={selectedState}
+        initialMode={authModalMode}
+        featureHint={authFeatureHint}
       />
     </div>
   );

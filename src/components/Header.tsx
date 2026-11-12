@@ -12,11 +12,15 @@ import {
   X,
   ChevronDown,
   Lock,
+  Pill,
+  User,
+  LogOut,
 } from 'lucide-react';
 import { NIGERIAN_STATES_DATA } from '../data/nigeriaHealthcareData';
 import { TRANSLATIONS } from '../data/localization';
 import { privateUi } from '../data/privateCare';
 import { SupportedLanguage, SUPPORTED_LANGUAGES } from '../types/triage';
+import { AppUser } from '../types/auth';
 import { BrandMark } from './BrandMark';
 
 interface HeaderProps {
@@ -28,6 +32,10 @@ interface HeaderProps {
   onOpenHospitals: () => void;
   onOpenFirstAid: () => void;
   onOpenPrivate: () => void;
+  onOpenPharmacy?: () => void;
+  currentUser?: AppUser | null;
+  onSignOut?: () => void;
+  onOpenAuth?: () => void;
 }
 
 const Tick: React.FC = () => (
@@ -47,6 +55,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenHospitals,
   onOpenFirstAid,
   onOpenPrivate,
+  onOpenPharmacy,
+  currentUser,
+  onSignOut,
+  onOpenAuth,
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [openMenu, setOpenMenu] = React.useState<'lang' | 'state' | null>(null);
@@ -121,6 +133,11 @@ export const Header: React.FC<HeaderProps> = ({
           <button type="button" onClick={onOpenFirstAid}>
             {t.firstAid}
           </button>
+          {onOpenPharmacy && (
+            <button type="button" onClick={onOpenPharmacy}>
+              {t.pharmacy}
+            </button>
+          )}
           <button type="button" onClick={onOpenPrivate}>
             {pui.entryTitle}
           </button>
@@ -218,6 +235,63 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
 
+          {currentUser ? (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 10px',
+                borderRadius: 8,
+                background: 'var(--surface-2)',
+                border: '1px solid var(--line)',
+                fontSize: 12.5,
+                color: 'var(--ink)',
+              }}
+            >
+              <User className="w-3.5 h-3.5" style={{ color: 'var(--brand)' }} />
+              <span
+                style={{
+                  maxWidth: 100,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontWeight: 600,
+                  fontSize: 12,
+                }}
+              >
+                {currentUser.phone || currentUser.displayName || currentUser.email || 'User'}
+              </span>
+              {onSignOut && (
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  title="Sign out / Exit"
+                  aria-label="Sign out"
+                  style={{
+                    color: 'var(--muted)',
+                    marginLeft: 2,
+                    padding: 2,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          ) : onOpenAuth ? (
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="btn btn-primary btn-sm"
+              style={{ borderRadius: 8, padding: '5px 12px', fontSize: 12.5, fontWeight: 650 }}
+            >
+              Sign In
+            </button>
+          ) : null}
+
           <button
             type="button"
             className="btn-emg"
@@ -246,6 +320,59 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="mobile-panel" data-open={mobileOpen ? 'true' : 'false'}>
+        {currentUser ? (
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: 10,
+              background: 'var(--surface-2)',
+              border: '1px solid var(--line)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 4,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <User className="w-4 h-4" style={{ color: 'var(--brand)' }} />
+              <div>
+                <b style={{ fontSize: 13, color: 'var(--ink)', display: 'block' }}>
+                  {currentUser.phone || currentUser.displayName || currentUser.email || 'User'}
+                </b>
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  Active {currentUser.authMethod.toUpperCase()} Session
+                </span>
+              </div>
+            </div>
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={() => {
+                  onSignOut();
+                  setMobileOpen(false);
+                }}
+                className="btn btn-outline btn-sm"
+                style={{ fontSize: 12, padding: '4px 10px' }}
+              >
+                Sign Out
+              </button>
+            )}
+          </div>
+        ) : onOpenAuth ? (
+          <button
+            type="button"
+            className="mobile-nav-item"
+            style={{ color: 'var(--brand)', fontWeight: 700 }}
+            onClick={() => {
+              onOpenAuth();
+              setMobileOpen(false);
+            }}
+          >
+            <User className="w-4 h-4" strokeWidth={2.2} />
+            Sign In / Register Free
+          </button>
+        ) : null}
+
         <button
           type="button"
           className="mobile-nav-item"
@@ -268,6 +395,19 @@ export const Header: React.FC<HeaderProps> = ({
           <BookOpen className="w-4 h-4" strokeWidth={2} />
           {t.firstAid}
         </button>
+        {onOpenPharmacy && (
+          <button
+            type="button"
+            className="mobile-nav-item"
+            onClick={() => {
+              onOpenPharmacy();
+              setMobileOpen(false);
+            }}
+          >
+            <Pill className="w-4 h-4" strokeWidth={2} />
+            {t.pharmacy}
+          </button>
+        )}
         <button
           type="button"
           className="mobile-nav-item"
